@@ -16,11 +16,13 @@ app.use('/questions', express.static(path.join(__dirname, 'questions'))); // Ser
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const testRoutes = require('./src/routes/testRoutes');
+const adminRoutes = require('./src/routes/adminRoutes');
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', testRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Database Initialization Check (from config)
 require('./src/config/db');
@@ -28,6 +30,11 @@ require('./src/config/db');
 // Health check route
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'CDS Portal API is running' });
+});
+
+// Serve the Admin Dashboard SPA for /admin
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.listen(PORT, () => {

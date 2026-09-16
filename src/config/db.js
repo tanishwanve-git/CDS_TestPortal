@@ -108,6 +108,18 @@ async function initTables(pool) {
             used BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_email (email)
+        )`,
+        `CREATE TABLE IF NOT EXISTS Test_Violations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            student_id INT NOT NULL,
+            test_id INT NOT NULL,
+            result_id INT,
+            violation_type VARCHAR(100) NOT NULL DEFAULT 'tab_switch',
+            violation_count INT NOT NULL DEFAULT 1,
+            auto_submitted TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (student_id) REFERENCES Students(id) ON DELETE CASCADE,
+            FOREIGN KEY (test_id) REFERENCES Tests(id) ON DELETE CASCADE
         )`
     ];
 

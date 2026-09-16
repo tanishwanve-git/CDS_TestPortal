@@ -401,7 +401,9 @@ async function performSubmit() {
             },
             body: JSON.stringify({
                 answers: userAnswers,
-                time_taken_seconds: totalTimeTaken
+                time_taken_seconds: totalTimeTaken,
+                violation_count: violationCount,
+                auto_submitted: isSubmitting && violationCount >= 2
             })
         });
 

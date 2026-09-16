@@ -73,7 +73,7 @@ exports.submitTest = async (req, res) => {
     try {
         const testId = req.params.testId;
         const studentId = req.user.id; // Protected route
-        const { answers, time_taken_seconds } = req.body;
+        const { answers, time_taken_seconds, violation_count, auto_submitted } = req.body;
         // `answers` is expected to be a map of { questionId: "selected_option" }
 
         const pool = await getPool;
@@ -130,6 +130,16 @@ exports.submitTest = async (req, res) => {
             'INSERT INTO Test_Result_Answers (result_id, answers) VALUES (?, ?)',
             [result.insertId, JSON.stringify(answers)]
         );
+
+        // Persist violations if any occurred during this session
+        const vCount = parseInt(violation_count) || 0;
+        if (vCount > 0) {
+            await pool.query(
+                `INSERT INTO Test_Violations (student_id, test_id, result_id, violation_type, violation_count, auto_submitted)
+                 VALUES (?, ?, ?, 'tab_switch_or_fullscreen_exit', ?, ?)`,
+                [studentId, testId, result.insertId, vCount, auto_submitted ? 1 : 0]
+            );
+        }
 
         res.json({
             message: 'Test submitted and graded successfully',
