@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | CDS Test Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="images/iitgn logo.png" alt="IITGN">
+            <span>CDS Portal</span>
+        </div>
+        <div class="nav-profile">
+            <span id="userNameHeader">Student Name</span>
+            <button id="logoutBtn" class="btn-outline">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+
+        <aside class="sidebar">
+            <div class="profile-card">
+                <div class="avatar">
+                    <span id="avatarLetter">S</span>
+                </div>
+                <h3 id="studentName">Student Name</h3>
+                <p id="studentRoll">Roll No: —</p>
+                <div class="branch-tag" id="studentBranch">—</div>
+            </div>
+
+            <div class="stats-overview">
+                <div class="stat-item">
+                    <h4>Tests Taken</h4>
+                    <span id="testsTaken" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <h4>Tests Remaining</h4>
+                    <span id="testsRemaining" class="stat-value">0</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+
+            <section class="upcoming-tests">
+                <h2>Available Mock Tests</h2>
+                <div class="test-grid" id="availableTestsGrid">
+                    <!-- Cards dynamically populated by dashboard.js -->
+                </div>
+            </section>
+
+            <section class="past-scores">
+                <h2>Your Scores</h2>
+                <div class="table-responsive">
+                    <table class="scores-table">
+                        <thead>
+                            <tr>
+                                <th>Test Name</th>
+                                <th>Date Taken</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scoresTableBody">
+                            <!-- Rows dynamically populated by dashboard.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div><!-- End dashboard-container -->
+
+    <!-- Instruction Modal -->
+    <div class="modal-overlay" id="rulesModal">
+        <div class="modal-card instruction-card">
+            <div class="modal-header">
+                <h2 id="modalTestTitle">Mock Test Title</h2>
+                <button class="close-modal" id="closeRulesBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="test-details-strip">
+                    <div class="detail-item">
+                        <span class="label">Questions</span>
+                        <span class="value" id="modalQCount">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Duration</span>
+                        <span class="value" id="modalDuration">0 mins</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Marking</span>
+                        <span class="value">+4 / -1</span>
+                    </div>
+                </div>
+
+                <div class="rules-section">
+                    <h3>Test Rules & Guidelines</h3>
+                    <ul class="rules-list">
+                        <li><strong>Academic Integrity:</strong> Use of AI tools (ChatGPT, Gemini, etc.) or external
+                            websites is strictly prohibited.</li>
+                        <li><strong>Safe Exam Browser:</strong> Switching tabs or exiting fullscreen during the exam
+                            will lead to
+                            <strong>automatic submission</strong> of your test.
+                        </li>
+                        <li><strong>Stable Connection:</strong> Ensure you have a stable internet connection before
+                            starting.</li>
+                        <li><strong>No Refresh:</strong> Do not refresh or close the page while the test is in progress.
+                        </li>
+                        <li><strong>Auto-Submit:</strong> The test will be automatically submitted when the timer
+                            reaches zero.</li>
+                    </ul>
+                </div>
+
+                <div class="disclaimer">
+                    By clicking "Start Final Test", you agree to follow the above rules.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" id="cancelRulesBtn">Go Back</button>
+                <button class="btn-primary" id="startFinalBtn">Start Final Test</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+
+</html>

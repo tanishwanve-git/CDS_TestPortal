@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Review | CDS Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .review-header {
+            background: white;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #dadce0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .review-header h1 {
+            font-size: 1.25rem;
+            color: #202124;
+            margin: 0;
+        }
+
+        .score-badge {
+            background: #e8f0fe;
+            color: #1a73e8;
+            padding: 0.5rem 1.25rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .review-body {
+            max-width: 860px;
+            margin: 2rem auto;
+            padding: 0 1.5rem 4rem;
+        }
+
+        .question-review-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border-left: 5px solid #dadce0;
+        }
+
+        .question-review-card.correct {
+            border-left-color: #0f9d58;
+        }
+
+        .question-review-card.incorrect {
+            border-left-color: #d93025;
+        }
+
+        .question-review-card.skipped {
+            border-left-color: #f29900;
+        }
+
+        .q-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .q-num {
+            font-weight: 700;
+            color: #5f6368;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .result-tag {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .tag-correct {
+            background: #e6f4ea;
+            color: #0f9d58;
+        }
+
+        .tag-incorrect {
+            background: #fce8e6;
+            color: #d93025;
+        }
+
+        .tag-skipped {
+            background: #fef7e0;
+            color: #f29900;
+        }
+
+        .q-text {
+            font-size: 1.05rem;
+            color: #202124;
+            margin-bottom: 1.25rem;
+            line-height: 1.6;
+        }
+
+        .options-review {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            border: 1px solid #dadce0;
+        }
+
+        .option-row.is-student-correct {
+            background: #e6f4ea;
+            border-color: #0f9d58;
+            color: #0f9d58;
+            font-weight: 600;
+        }
+
+        .option-row.is-student-wrong {
+            background: #fce8e6;
+            border-color: #d93025;
+            color: #d93025;
+            font-weight: 600;
+        }
+
+        .option-icon {
+            font-size: 1rem;
+            min-width: 18px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 1.5rem;
+            color: #1a73e8;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            padding: 0;
+            font-weight: 500;
+        }
+
+        .back-btn:hover {
+            text-decoration: underline;
+        }
+
+        .summary-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem 1.75rem;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-item .val {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        .summary-item .lbl {
+            font-size: 0.8rem;
+            color: #5f6368;
+            text-transform: uppercase;
+        }
+
+        .val.c {
+            color: #0f9d58;
+        }
+
+        .val.w {
+            color: #d93025;
+        }
+
+        .val.s {
+            color: #f29900;
+        }
+
+        .val.sc {
+            color: #1a73e8;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-box {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-box h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1rem;
+            color: #202124;
+            text-align: center;
+            width: 100%;
+        }
+
+        #loadingMsg {
+            text-align: center;
+            padding: 4rem;
+            color: #5f6368;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+
+<body class="dashboard-body">
+
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="images/iitgn logo.png" alt="IITGN">
+            <span>CDS Portal</span>
+        </div>
+        <div class="nav-profile">
+            <button id="logoutBtn" class="btn-outline">Logout</button>
+        </div>
+    </nav>
+
+    <div class="review-header">
+        <h1 id="reviewTitle">Test Review</h1>
+        <div class="score-badge" id="scoreBadge">Loading…</div>
+    </div>
+
+    <div class="review-body">
+        <button class="back-btn" onclick="window.location.href='dashboard.html'">
+            ← Back to Dashboard
+        </button>
+
+        <div class="summary-bar" id="summaryBar" style="display:none;">
+            <div class="summary-item">
+                <div class="val c" id="sCorrect">0</div>
+                <div class="lbl">Correct</div>
+            </div>
+            <div class="summary-item">
+                <div class="val w" id="sWrong">0</div>
+                <div class="lbl">Wrong</div>
+            </div>
+            <div class="summary-item">
+                <div class="val s" id="sSkipped">0</div>
+                <div class="lbl">Skipped</div>
+            </div>
+            <div class="summary-item">
+                <div class="val tm" id="sTime" style="color: #5f6368;">00:00</div>
+                <div class="lbl">Time Taken</div>
+            </div>
+            <div class="summary-item">
+                <div class="val sc" id="sScore">0</div>
+                <div class="lbl">Final Score</div>
+            </div>
+        </div>
+
+        <div class="charts-container" id="chartsContainer" style="display:none;">
+            <div class="chart-box">
+                <h3>Section Performance</h3>
+                <canvas id="sectionRadarChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>Score Comparison</h3>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+
+        <div id="loadingMsg">Loading review data…</div>
+        <div id="questionsContainer"></div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const resultId = localStorage.getItem('reviewResultId');
+
+        if (!token || !resultId) window.location.href = 'dashboard.html';
+
+        document.getElementById('logoutBtn').onclick = () => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        };
+
+        async function loadReview() {
+            try {
+                const res = await fetch(`/api/tests/result/${resultId}/review`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Could not load review');
+                const { result, questions, stats } = await res.json();
+
+                document.getElementById('reviewTitle').innerText = `Review: ${result.title}`;
+                document.getElementById('scoreBadge').innerText = `Score: ${result.score} / ${result.total_questions * 4}`;
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('summaryBar').style.display = 'flex';
+                document.getElementById('chartsContainer').style.display = 'grid';
+
+                let correct = stats.totalCorrect;
+                let wrong = stats.totalNegatives;
+                let skipped = result.total_questions - (correct + wrong);
+
+                const container = document.getElementById('questionsContainer');
+
+                questions.forEach((q, idx) => {
+                    const options = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+                    const studentAns = q.studentAnswer;
+
+                    let status = 'skipped';
+                    if (studentAns) {
+                        status = q.isCorrect ? 'correct' : 'incorrect';
+                    }
+
+                    const tagClass = status === 'correct' ? 'tag-correct' : status === 'incorrect' ? 'tag-incorrect' : 'tag-skipped';
+                    const tagText = status === 'correct' ? '✓ Correct' : status === 'incorrect' ? '✗ Wrong' : '— Skipped';
+
+                    let optionsHTML = '';
+                    Object.entries(options).forEach(([key, val]) => {
+                        let cls = '';
+                        let icon = '○';
+
+                        const isImage = (typeof val === 'string' && val.match(/^(https?:\/\/|\/).*\.(png|jpg|jpeg|gif|webp|svg)$/i));
+                        let displayValue = isImage
+                            ? `<br><img src="${val}" alt="Option ${key}" style="max-height: 120px; max-width: 100%; border-radius: 4px; margin-top: 5px;">`
+                            : val;
+                        // Logic: Highlight if THEY chose it. Never tell what is true.
+                        if (key === studentAns) {
+                            if (status === 'correct') {
+                                cls = 'is-student-correct';
+                                icon = '✓';
+                            } else if (status === 'incorrect') {
+                                cls = 'is-student-wrong';
+                                icon = '✗';
+                            }
+                        }
+
+                        optionsHTML += `
+                            <div class="option-row ${cls}">
+                                <span class="option-icon">${icon}</span>
+                                <div><strong>${key}:</strong> ${displayValue}</div>
+                            </div>`;
+                    });
+
+                    let qHtml = q.question_text.replace(/\n/g, '<br>');
+                    if (q.image_url && q.image_url.trim() !== '') {
+                        qHtml += `<br><img src="${q.image_url}" alt="Question Image" style="max-width: 100%; max-height: 350px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+                    }
+
+                    container.innerHTML += `
+                        <div class="question-review-card ${status}">
+                            <div class="q-meta">
+                                <div>
+                                    <span class="q-num">Question ${idx + 1}</span>
+                                    <span style="font-size: 0.8rem; color: #5f6368; margin-left:10px;">• ${q.section_name}</span>
+                                </div>
+                                <span class="result-tag ${tagClass}">${tagText}</span>
+                            </div>
+                            <div class="q-text">${qHtml}</div>
+                            <div class="options-review">${optionsHTML}</div>
+                            ${status === 'incorrect' ? `<p style="margin-top:1rem;font-size:0.9rem;color:#d93025; font-weight:500;">Incorrect. The correct answer has been hidden.</p>` : ''}
+                        </div>`;
+                });
+
+                document.getElementById('sCorrect').innerText = correct;
+                document.getElementById('sWrong').innerText = wrong;
+                document.getElementById('sSkipped').innerText = skipped;
+                document.getElementById('sScore').innerText = result.score;
+
+                // Format time taken (seconds to mm:ss)
+                const totalSeconds = result.time_taken_seconds || 0;
+                const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('sTime').innerText = `${minutes}:${seconds}`;
+
+                // --- Chart Logic ---
+                renderCharts(stats, result.score);
+
+            } catch (err) {
+                document.getElementById('loadingMsg').innerText = 'Failed to load review. ' + err.message;
+            }
+        }
+
+        function renderCharts(stats, finalScore) {
+            const labels = stats.sectionScores.map(s => s.name);
+            const scores = stats.sectionScores.map(s => s.score);
+            const maxScores = stats.sectionScores.map(s => s.maxScore);
+
+            // Chart 1: Section Performance Radar
+            const ctx1 = document.getElementById('sectionRadarChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Your Score',
+                        data: scores,
+                        backgroundColor: 'rgba(26, 115, 232, 0.2)',
+                        borderColor: 'rgba(26, 115, 232, 1)',
+                        pointBackgroundColor: 'rgba(26, 115, 232, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Comparison Bar Chart
+            const ctx2 = document.getElementById('comparisonChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Your Score', 'Average Score'],
+                    datasets: [{
+                        label: 'Points',
+                        data: [finalScore, stats.averageScore],
+                        backgroundColor: [
+                            'rgba(15, 157, 88, 0.8)', // Green for you
+                            'rgba(95, 99, 104, 0.8)'  // Grey for avg
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        loadReview();
+    </script>
+</body>
+
+</html>
