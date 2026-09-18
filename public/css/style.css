@@ -1,11 +1,15 @@
-/* style.css */
+/* style.css - Background UI & Theme Styling */
 :root {
-    --primary-color: #1a73e8;
-    --primary-hover: #1557b0;
-    --text-dark: #202124;
-    --text-light: #5f6368;
-    --white: #ffffff;
-    --border-color: #dadce0;
+    --primary-color: #C4D1EC;
+    --primary-hover: #D4E0F7;
+    --primary-text: #121214;
+    --bg-dark: #121214;
+    --card-bg: #1C1C1F;
+    --input-bg: #18181B;
+    --text-dark: #FFFFFF;
+    --text-light: #A1A1AA;
+    --white: #FFFFFF;
+    --border-color: #2E2E32;
     --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -20,34 +24,19 @@ body,
 html {
     min-height: 100%;
     width: 100%;
-    background-color: transparent;
-    /* Let background-container show through */
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
 }
 
-/* Background image handling — login page only */
+/* Background container handling */
 .background-container {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('../images/iitgn%20bg.jpeg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background-color: var(--bg-dark);
     z-index: 0;
-}
-
-/* Add a dark overlay to make the login card and logos pop out */
-.background-container::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 1;
 }
 
 /* Header for logos */
@@ -64,10 +53,9 @@ html {
 
 .logo-left img,
 .logo-right img {
-    height: 80px;
+    height: 70px;
     object-fit: contain;
-    /* Adding a subtle glow so logos are visible on dark background */
-    filter: drop-shadow(0 4px 6px rgba(255, 255, 255, 0.2));
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
 }
 
 /* Center LoginForm wrapper */
@@ -78,15 +66,16 @@ html {
     min-height: 100vh;
     z-index: 5;
     position: relative;
-    padding: 120px 20px 60px 20px;
+    padding: 40px 20px;
 }
 
 /* Login Card UI */
 .login-card {
-    background-color: var(--white);
+    background-color: var(--card-bg);
     padding: 2.5rem;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     width: 100%;
     max-width: 420px;
     text-align: center;
@@ -131,23 +120,22 @@ html {
     font-size: 0.95rem;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.2s;
-    background-color: var(--white);
+    transition: border-color 0.2s, background-color 0.2s;
+    background-color: var(--input-bg);
     color: var(--text-dark);
 }
 
-/* Unify placeholder colors for both inputs and unselected dropdowns */
 .input-group input::placeholder {
-    color: #757575;
-    /* Standard placeholder gray */
-    opacity: 1;
+    color: var(--text-light);
+    opacity: 0.8;
 }
 
 .input-group select:invalid {
-    color: #757575;
+    color: var(--text-light);
 }
 
 .input-group select option {
+    background-color: var(--card-bg);
     color: var(--text-dark);
 }
 
@@ -155,29 +143,27 @@ html {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    /* Use a safer, more standard SVG encoding for the dropdown arrow */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23757575' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A1A1AA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 1rem center;
     background-size: 16px;
     padding-right: 2.5rem;
-    /* Ensure space so text doesn't overlap the arrow */
     cursor: pointer;
 }
 
 .input-group input:focus,
 .input-group select:focus {
-    border-color: var(--primary-color);
+    border-color: #3F3F46;
 }
 
 .btn-primary {
     background-color: var(--primary-color);
-    color: var(--white);
+    color: var(--primary-text);
     border: none;
     padding: 0.85rem;
     border-radius: 6px;
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
     margin-top: 0.5rem;
@@ -195,13 +181,13 @@ html {
 }
 
 .auth-toggle a {
-    color: var(--primary-color);
-    text-decoration: none;
+    color: var(--text-dark);
+    text-decoration: underline;
     font-weight: 600;
 }
 
 .auth-toggle a:hover {
-    text-decoration: underline;
+    color: var(--primary-hover);
 }
 
 .divider {
@@ -227,7 +213,7 @@ html {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: var(--white);
+    background-color: var(--card-bg);
     color: var(--text-dark);
     border: 1px solid var(--border-color);
     padding: 0.75rem;
@@ -239,8 +225,7 @@ html {
 }
 
 .btn-google:hover {
-    background-color: #f8f9fa;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: #27272A;
 }
 
 .google-icon {
@@ -265,7 +250,7 @@ html {
     }
 }
 
-/* ---- Fix 4: Password show/hide wrapper ---- */
+/* Password show/hide wrapper */
 .password-wrapper {
     position: relative;
     display: flex;
@@ -292,14 +277,14 @@ html {
 }
 
 .toggle-password:hover {
-    color: var(--primary-color);
+    color: var(--text-dark);
 }
 
-/* ---- Fix 3: Review button on scores table ---- */
+/* Review button on scores table */
 .review-btn {
     background: none;
     border: none;
-    color: var(--primary-color);
+    color: var(--text-dark);
     font-size: 0.95rem;
     font-family: var(--font-stack);
     cursor: pointer;
@@ -312,4 +297,78 @@ html {
 
 .review-btn:hover {
     color: var(--primary-hover);
+}
+
+/* ── Email input with fixed @iitgn.ac.in domain badge ── */
+.email-input-wrapper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--input-bg);
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.email-input-wrapper:focus-within {
+    border-color: #3F3F46;
+}
+
+.email-input-wrapper input {
+    flex: 1;
+    background: transparent;
+    border: none !important;
+    outline: none !important;
+    padding: 0.75rem 0 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: var(--text-dark);
+    min-width: 0;
+}
+
+.email-input-wrapper input::placeholder {
+    color: var(--text-light);
+    opacity: 0.8;
+}
+
+.email-domain-badge {
+    flex-shrink: 0;
+    padding: 0.75rem 0.85rem 0.75rem 0;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #71717A;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* Remove default input border from .input-group when email-input-wrapper is used */
+.email-input-wrapper .input-group input {
+    border: none;
+}
+
+/* ── Google-only login layout ── */
+.google-only-login {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+}
+
+.google-hint {
+    font-size: 0.87rem;
+    color: var(--text-light);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.google-hint strong {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+/* Make the Google button fill full width */
+.google-only-login #g_id_signin {
+    width: 100%;
 }

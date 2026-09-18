@@ -11,9 +11,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .review-header {
-            background: white;
+            background: #161618;
             padding: 1.5rem 2rem;
-            border-bottom: 1px solid #dadce0;
+            border-bottom: 1px solid #2E2E32;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -21,13 +21,15 @@
 
         .review-header h1 {
             font-size: 1.25rem;
-            color: #202124;
+            color: #FFFFFF;
             margin: 0;
+            font-weight: 700;
         }
 
         .score-badge {
-            background: #e8f0fe;
-            color: #1a73e8;
+            background: rgba(34, 197, 94, 0.15);
+            color: #22C55E;
+            border: 1px solid rgba(34, 197, 94, 0.3);
             padding: 0.5rem 1.25rem;
             border-radius: 20px;
             font-weight: 700;
@@ -41,24 +43,25 @@
         }
 
         .question-review-card {
-            background: white;
+            background: #1C1C1F;
+            border: 1px solid #2E2E32;
             border-radius: 12px;
             padding: 1.75rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            border-left: 5px solid #dadce0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid #2E2E32;
         }
 
         .question-review-card.correct {
-            border-left-color: #0f9d58;
+            border-left-color: #22C55E;
         }
 
         .question-review-card.incorrect {
-            border-left-color: #d93025;
+            border-left-color: #EF4444;
         }
 
         .question-review-card.skipped {
-            border-left-color: #f29900;
+            border-left-color: #F59E0B;
         }
 
         .q-meta {
@@ -70,7 +73,7 @@
 
         .q-num {
             font-weight: 700;
-            color: #5f6368;
+            color: #A1A1AA;
             font-size: 0.85rem;
             text-transform: uppercase;
         }
@@ -83,23 +86,23 @@
         }
 
         .tag-correct {
-            background: #e6f4ea;
-            color: #0f9d58;
+            background: rgba(34, 197, 94, 0.15);
+            color: #22C55E;
         }
 
         .tag-incorrect {
-            background: #fce8e6;
-            color: #d93025;
+            background: rgba(239, 68, 68, 0.15);
+            color: #EF4444;
         }
 
         .tag-skipped {
-            background: #fef7e0;
-            color: #f29900;
+            background: rgba(245, 158, 11, 0.15);
+            color: #F59E0B;
         }
 
         .q-text {
             font-size: 1.05rem;
-            color: #202124;
+            color: #FFFFFF;
             margin-bottom: 1.25rem;
             line-height: 1.6;
         }
@@ -114,23 +117,25 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 0.6rem 1rem;
+            padding: 0.75rem 1rem;
             border-radius: 8px;
             font-size: 0.95rem;
-            border: 1px solid #dadce0;
+            background: #18181B;
+            border: 1px solid #2E2E32;
+            color: #D4D4D8;
         }
 
         .option-row.is-student-correct {
-            background: #e6f4ea;
-            border-color: #0f9d58;
-            color: #0f9d58;
+            background: rgba(34, 197, 94, 0.15);
+            border-color: #22C55E;
+            color: #22C55E;
             font-weight: 600;
         }
 
         .option-row.is-student-wrong {
-            background: #fce8e6;
-            border-color: #d93025;
-            color: #d93025;
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #EF4444;
+            color: #EF4444;
             font-weight: 600;
         }
 
@@ -144,7 +149,7 @@
             align-items: center;
             gap: 8px;
             margin-bottom: 1.5rem;
-            color: #1a73e8;
+            color: #C4D1EC;
             background: none;
             border: none;
             font-size: 1rem;
@@ -155,18 +160,20 @@
         }
 
         .back-btn:hover {
+            color: #D4E0F7;
             text-decoration: underline;
         }
 
         .summary-bar {
-            background: white;
+            background: #1C1C1F;
+            border: 1px solid #2E2E32;
             border-radius: 12px;
             padding: 1.25rem 1.75rem;
             margin-bottom: 2rem;
             display: flex;
             gap: 2rem;
             flex-wrap: wrap;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .summary-item {
@@ -180,24 +187,24 @@
 
         .summary-item .lbl {
             font-size: 0.8rem;
-            color: #5f6368;
+            color: #A1A1AA;
             text-transform: uppercase;
         }
 
         .val.c {
-            color: #0f9d58;
+            color: #22C55E;
         }
 
         .val.w {
-            color: #d93025;
+            color: #EF4444;
         }
 
         .val.s {
-            color: #f29900;
+            color: #F59E0B;
         }
 
         .val.sc {
-            color: #1a73e8;
+            color: #C4D1EC;
         }
 
         .charts-container {
@@ -208,10 +215,11 @@
         }
 
         .chart-box {
-            background: white;
+            background: #1C1C1F;
+            border: 1px solid #2E2E32;
             border-radius: 12px;
             padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             height: 300px;
             display: flex;
             flex-direction: column;
@@ -222,7 +230,7 @@
         .chart-box h3 {
             margin: 0 0 1rem 0;
             font-size: 1rem;
-            color: #202124;
+            color: #FFFFFF;
             text-align: center;
             width: 100%;
         }
@@ -230,7 +238,7 @@
         #loadingMsg {
             text-align: center;
             padding: 4rem;
-            color: #5f6368;
+            color: #A1A1AA;
             font-size: 1.1rem;
         }
     </style>
@@ -254,7 +262,7 @@
     </div>
 
     <div class="review-body">
-        <button class="back-btn" onclick="window.location.href='dashboard.html'">
+        <button class="back-btn" onclick="window.location.href='/dashboard.html'">
             ← Back to Dashboard
         </button>
 
@@ -272,7 +280,7 @@
                 <div class="lbl">Skipped</div>
             </div>
             <div class="summary-item">
-                <div class="val tm" id="sTime" style="color: #5f6368;">00:00</div>
+                <div class="val tm" id="sTime" style="color: #A1A1AA;">00:00</div>
                 <div class="lbl">Time Taken</div>
             </div>
             <div class="summary-item">
@@ -300,20 +308,50 @@
         const token = localStorage.getItem('token');
         const resultId = localStorage.getItem('reviewResultId');
 
-        if (!token || !resultId) window.location.href = 'dashboard.html';
+        if (!token || !resultId) window.location.href = '/dashboard.html';
+
+        const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+        const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
 
         document.getElementById('logoutBtn').onclick = () => {
             localStorage.clear();
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         };
 
         async function loadReview() {
             try {
-                const res = await fetch(`/api/tests/result/${resultId}/review`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error('Could not load review');
-                const { result, questions, stats } = await res.json();
+                // ── Cache check: serve from localStorage if fresh (< 30 min) ──
+                const CACHE_KEY = `reviewCache_${resultId}`;
+                const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+                let reviewData = null;
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        if (Date.now() - parsed.cachedAt < CACHE_TTL) {
+                            reviewData = parsed.data;
+                        } else {
+                            localStorage.removeItem(CACHE_KEY);
+                        }
+                    } catch { localStorage.removeItem(CACHE_KEY); }
+                }
+
+                if (!reviewData) {
+                    const res = await fetch(`${API_BASE}/tests/result/${resultId}/review`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!res.ok) throw new Error('Could not load review');
+                    reviewData = await res.json();
+                    // Store in cache for subsequent fast loads
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify({
+                            cachedAt: Date.now(),
+                            data: reviewData
+                        }));
+                    } catch { /* storage full — skip cache */ }
+                }
+
+                const { result, questions, stats } = reviewData;
 
                 document.getElementById('reviewTitle').innerText = `Review: ${result.title}`;
                 document.getElementById('scoreBadge').innerText = `Score: ${result.score} / ${result.total_questions * 4}`;
@@ -376,13 +414,13 @@
                             <div class="q-meta">
                                 <div>
                                     <span class="q-num">Question ${idx + 1}</span>
-                                    <span style="font-size: 0.8rem; color: #5f6368; margin-left:10px;">• ${q.section_name}</span>
+                                    <span style="font-size: 0.8rem; color: #A1A1AA; margin-left:10px;">• ${q.section_name}</span>
                                 </div>
                                 <span class="result-tag ${tagClass}">${tagText}</span>
                             </div>
                             <div class="q-text">${qHtml}</div>
                             <div class="options-review">${optionsHTML}</div>
-                            ${status === 'incorrect' ? `<p style="margin-top:1rem;font-size:0.9rem;color:#d93025; font-weight:500;">Incorrect. The correct answer has been hidden.</p>` : ''}
+                            ${status === 'incorrect' ? `<p style="margin-top:1rem;font-size:0.9rem;color:#EF4444; font-weight:500;">Incorrect. The correct answer has been hidden.</p>` : ''}
                         </div>`;
                 });
 
@@ -419,9 +457,9 @@
                     datasets: [{
                         label: 'Your Score',
                         data: scores,
-                        backgroundColor: 'rgba(26, 115, 232, 0.2)',
-                        borderColor: 'rgba(26, 115, 232, 1)',
-                        pointBackgroundColor: 'rgba(26, 115, 232, 1)',
+                        backgroundColor: 'rgba(196, 209, 236, 0.2)',
+                        borderColor: '#C4D1EC',
+                        pointBackgroundColor: '#C4D1EC',
                         borderWidth: 2
                     }]
                 },
@@ -430,8 +468,15 @@
                     maintainAspectRatio: false,
                     scales: {
                         r: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            grid: { color: '#2E2E32' },
+                            angleLines: { color: '#2E2E32' },
+                            pointLabels: { color: '#A1A1AA' },
+                            ticks: { color: '#A1A1AA', backdropColor: 'transparent' }
                         }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#FFFFFF' } }
                     }
                 }
             });
@@ -446,8 +491,8 @@
                         label: 'Points',
                         data: [finalScore, stats.averageScore],
                         backgroundColor: [
-                            'rgba(15, 157, 88, 0.8)', // Green for you
-                            'rgba(95, 99, 104, 0.8)'  // Grey for avg
+                            '#22C55E', // Green for you
+                            '#6B7280'  // Grey for avg
                         ],
                         borderWidth: 0,
                         borderRadius: 6
@@ -458,7 +503,8 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true }
+                        x: { grid: { display: false }, ticks: { color: '#A1A1AA' } },
+                        y: { beginAtZero: true, grid: { color: '#2E2E32' }, ticks: { color: '#A1A1AA' } }
                     }
                 }
             });

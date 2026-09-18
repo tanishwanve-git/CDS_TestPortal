@@ -111,10 +111,10 @@ exports.submitTest = async (req, res) => {
                     : studentAns === q.correct_answer;
 
                 if (isCorrect) {
-                    score += parseFloat(q.marks || 4);
+                    score += parseFloat(q.marks ?? 4);
                     correctCount++;
                 } else {
-                    score -= parseFloat(q.negative_marks || 1); // Negative marking
+                    score -= parseFloat(q.negative_marks ?? 1); // Negative marking
                 }
             }
         }
@@ -235,14 +235,14 @@ exports.getReview = async (req, res) => {
                 ? String(submittedAnswers[q.id]).trim() === String(q.correct_answer).trim()
                 : submittedAnswers[q.id] === q.correct_answer;
 
-            sectionStats[secId].maxScore += parseFloat(q.marks || 4);
+            sectionStats[secId].maxScore += parseFloat(q.marks ?? 4);
 
             if (submittedAnswers[q.id]) {
                 if (isCorrect) {
-                    sectionStats[secId].score += parseFloat(q.marks || 4);
+                    sectionStats[secId].score += parseFloat(q.marks ?? 4);
                     totalCorrect++;
                 } else {
-                    sectionStats[secId].score -= parseFloat(q.negative_marks || 1);
+                    sectionStats[secId].score -= parseFloat(q.negative_marks ?? 1);
                     totalNegatives++;
                 }
             }

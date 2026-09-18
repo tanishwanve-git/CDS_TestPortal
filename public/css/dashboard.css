@@ -1,6 +1,7 @@
-/* dashboard.css */
+/* dashboard.css - Background UI & Theme Styling */
 .dashboard-body {
-    background-color: #f4f6f8;
+    background-color: #121214;
+    color: #FFFFFF;
     overflow-y: auto;
 }
 
@@ -9,8 +10,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 2rem;
-    background-color: var(--white);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    background-color: #161618;
+    border-bottom: 1px solid #2E2E32;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .nav-brand {
@@ -19,7 +21,7 @@
     gap: 15px;
     font-weight: 600;
     font-size: 1.25rem;
-    color: var(--primary-color);
+    color: #FFFFFF;
 }
 
 .nav-brand img {
@@ -32,22 +34,30 @@
     align-items: center;
     gap: 1rem;
     font-weight: 500;
+    color: #FFFFFF;
 }
 
 .btn-outline {
     background: transparent;
-    border: 1px solid var(--border-color);
+    border: 1px solid #2E2E32;
+    color: #FFFFFF;
     padding: 0.5rem 1rem;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
     transition: all 0.2s;
 }
 
 .btn-outline:hover {
-    background-color: #fff1f1;
-    color: #d32f2f;
-    border-color: #d32f2f;
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border-color: #EF4444;
+}
+
+.btn-admin-toggle:hover {
+    background-color: rgba(196, 209, 236, 0.2) !important;
+    color: #FFFFFF !important;
+    border-color: #C4D1EC !important;
 }
 
 .dashboard-container {
@@ -64,19 +74,20 @@
 }
 
 .profile-card {
-    background: var(--white);
+    background: #1C1C1F;
+    border: 1px solid #2E2E32;
     padding: 2rem;
     border-radius: 12px;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     margin-bottom: 2rem;
 }
 
 .avatar {
     width: 80px;
     height: 80px;
-    background: var(--primary-color);
-    color: var(--white);
+    background: #C4D1EC;
+    color: #121214;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -87,24 +98,36 @@
 }
 
 .profile-card h3 {
-    color: var(--text-dark);
+    color: #FFFFFF;
     margin-bottom: 0.25rem;
 }
 
 .profile-card p {
-    color: var(--text-light);
+    color: #A1A1AA;
     font-size: 0.9rem;
     margin-bottom: 0.5rem;
 }
 
 .branch-tag {
     display: inline-block;
-    background: #e8f0fe;
-    color: var(--primary-color);
+    background: #27272A;
+    color: #A1A1AA;
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+.programme-tag {
+    display: inline-block;
+    background: #1C2A3A;
+    color: #C4D1EC;
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.4rem;
+    border: 1px solid #2E3F57;
 }
 
 .stats-overview {
@@ -113,17 +136,18 @@
 }
 
 .stat-item {
-    background: var(--white);
+    background: #1C1C1F;
+    border: 1px solid #2E2E32;
     padding: 1.5rem;
     border-radius: 12px;
     flex: 1;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .stat-item h4 {
     font-size: 0.8rem;
-    color: var(--text-light);
+    color: #A1A1AA;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 0.5rem;
@@ -132,7 +156,7 @@
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--text-dark);
+    color: #FFFFFF;
 }
 
 .main-content {
@@ -146,10 +170,10 @@
 
 .upcoming-tests h2,
 .past-scores h2 {
-    color: var(--text-dark);
+    color: #FFFFFF;
     font-size: 1.25rem;
     margin-bottom: 1.25rem;
-    border-bottom: 2px solid var(--border-color);
+    border-bottom: 1px solid #2E2E32;
     padding-bottom: 0.5rem;
 }
 
@@ -160,37 +184,48 @@
 }
 
 .test-card {
-    background: var(--white);
+    background: #1C1C1F;
+    border: 1px solid #2E2E32;
     padding: 1.5rem;
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    border-left: 4px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-left: 4px solid #C4D1EC;
 }
 
 .test-card h3 {
     margin-bottom: 0.5rem;
-    color: var(--text-dark);
+    color: #FFFFFF;
 }
 
 .test-card p {
-    color: var(--text-light);
+    color: #A1A1AA;
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
 }
 
-/* Scoped primary button style to match cards better */
 .test-card .btn-primary {
     display: inline-block;
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1.25rem;
     text-decoration: none;
     font-size: 0.9rem;
+    background-color: #C4D1EC;
+    color: #121214;
+    border-radius: 6px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+}
+
+.test-card .btn-primary:hover {
+    background-color: #D4E0F7;
 }
 
 .table-responsive {
-    background: var(--white);
+    background: #1C1C1F;
+    border: 1px solid #2E2E32;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .scores-table {
@@ -202,25 +237,25 @@
 .scores-table td {
     padding: 1rem 1.5rem;
     text-align: left;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid #2E2E32;
 }
 
 .scores-table th {
-    background: #fafafa;
-    color: var(--text-light);
+    background: #161618;
+    color: #A1A1AA;
     font-weight: 600;
     font-size: 0.85rem;
     text-transform: uppercase;
 }
 
 .scores-table td {
-    color: var(--text-dark);
+    color: #FFFFFF;
     font-size: 0.95rem;
 }
 
 .status-pass {
-    color: #0f9d58;
-    background: #e6f4ea;
+    color: #22C55E;
+    background: rgba(34, 197, 94, 0.15);
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -244,10 +279,9 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(4px);
     display: none;
-    /* Controlled by JS */
     align-items: center;
     justify-content: center;
     z-index: 1000;
@@ -258,13 +292,15 @@
 }
 
 .modal-card {
-    background: var(--white);
+    background: #1C1C1F;
+    border: 1px solid #2E2E32;
     width: 100%;
     max-width: 600px;
     border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
     overflow: hidden;
     animation: modalPop 0.3s ease-out;
+    color: #FFFFFF;
 }
 
 @keyframes modalPop {
@@ -280,12 +316,13 @@
 }
 
 .modal-header {
-    background: var(--primary-color);
+    background: #161618;
     padding: 1.5rem;
-    color: var(--white);
+    color: #FFFFFF;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid #2E2E32;
 }
 
 .modal-header h2 {
@@ -296,10 +333,14 @@
 .close-modal {
     background: transparent;
     border: none;
-    color: var(--white);
+    color: #A1A1AA;
     font-size: 2rem;
     cursor: pointer;
     line-height: 1;
+}
+
+.close-modal:hover {
+    color: #FFFFFF;
 }
 
 .modal-body {
@@ -309,11 +350,11 @@
 .test-details-strip {
     display: flex;
     justify-content: space-around;
-    background: #f8f9fa;
+    background: #18181B;
     padding: 1.25rem;
     border-radius: 12px;
     margin-bottom: 2rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid #2E2E32;
 }
 
 .detail-item {
@@ -323,7 +364,7 @@
 .detail-item .label {
     display: block;
     font-size: 0.75rem;
-    color: var(--text-light);
+    color: #A1A1AA;
     text-transform: uppercase;
     font-weight: 600;
     margin-bottom: 4px;
@@ -332,12 +373,12 @@
 .detail-item .value {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--primary-color);
+    color: #C4D1EC;
 }
 
 .rules-section h3 {
     font-size: 1rem;
-    color: var(--text-dark);
+    color: #FFFFFF;
     margin-bottom: 1rem;
 }
 
@@ -348,7 +389,7 @@
 
 .rules-list li {
     font-size: 0.95rem;
-    color: var(--text-light);
+    color: #A1A1AA;
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
@@ -357,7 +398,7 @@
 
 .rules-list li::before {
     content: "•";
-    color: var(--primary-color);
+    color: #C4D1EC;
     font-weight: bold;
     display: inline-block;
     width: 1rem;
@@ -369,19 +410,45 @@
 .disclaimer {
     margin-top: 1.5rem;
     font-size: 0.85rem;
-    color: #d32f2f;
-    background: #fff8f8;
+    color: #EF4444;
+    background: rgba(239, 68, 68, 0.1);
     padding: 0.75rem;
     border-radius: 6px;
-    border-left: 3px solid #d32f2f;
+    border-left: 3px solid #EF4444;
     text-align: center;
 }
 
 .modal-footer {
     padding: 1.5rem;
-    background: #f8f9fa;
-    border-top: 1px solid var(--border-color);
+    background: #161618;
+    border-top: 1px solid #2E2E32;
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
+}
+
+.modal-footer .btn-primary {
+    background-color: #C4D1EC;
+    color: #121214;
+    border-radius: 6px;
+    padding: 0.6rem 1.25rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+}
+
+.modal-footer .btn-primary:hover {
+    background-color: #D4E0F7;
+}
+
+.modal-footer .btn-outline {
+    background: transparent;
+    border: 1px solid #2E2E32;
+    color: #FFFFFF;
+}
+
+.modal-footer .btn-outline:hover {
+    background-color: #27272A;
+    color: #FFFFFF;
+    border-color: #3F3F46;
 }

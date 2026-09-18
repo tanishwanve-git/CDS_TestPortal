@@ -4,6 +4,9 @@ const authController = require('../controllers/authController');
 const passwordController = require('../controllers/passwordController');
 const { protect } = require('../middlewares/authMiddleware');
 
+// Get Public Auth Configuration (e.g. Google Client ID)
+router.get('/config', authController.getConfig);
+
 // Complete Profile Route for Google Login Users
 router.post('/complete-profile', protect, authController.completeProfile);
 
@@ -12,6 +15,10 @@ router.post('/register', authController.register);
 
 // Login Route
 router.post('/login', authController.login);
+
+// Verify Email / Allowed Student Route
+router.post('/verify', authController.verifyEmail);
+router.get('/verify', authController.verifyEmail);
 
 // Google Sign-In Route
 router.post('/google', authController.googleLogin);
