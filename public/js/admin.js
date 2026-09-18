@@ -6,7 +6,8 @@
 'use strict';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const API = '/api/admin';
+const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+const API = subpathMatch ? `${subpathMatch[1]}/api/admin` : '/api/admin';
 let token = null;
 let adminUser = null;
 let currentSection = 'overview';
@@ -141,7 +142,7 @@ function setupApp() {
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/index.html';
+        window.location.href = 'index.html';
     });
 
     // Refresh button

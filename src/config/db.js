@@ -109,6 +109,16 @@ async function initTables(pool) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_email (email)
         )`,
+        `CREATE TABLE IF NOT EXISTS allowed_students (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            roll_number VARCHAR(50) UNIQUE NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            programme VARCHAR(100) NOT NULL,
+            discipline VARCHAR(100) NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
         `CREATE TABLE IF NOT EXISTS Test_Violations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             student_id INT NOT NULL,
@@ -126,7 +136,15 @@ async function initTables(pool) {
     for (let query of tableQueries) {
         await pool.query(query);
     }
-    console.log('✅ Base Database Tables Initialized');
+
+    // Ensure programme & discipline exist on Students table if used
+    try {
+        await pool.query(`ALTER TABLE Students ADD COLUMN programme VARCHAR(100) NULL, ADD COLUMN discipline VARCHAR(100) NULL;`);
+    } catch (e) {
+        // Ignored if columns already exist
+    }
+
+    console.log('✅ Base Database Tables & allowed_students Initialized');
 }
 
 module.exports = createPool();

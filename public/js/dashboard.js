@@ -1,9 +1,13 @@
 // dashboard.js - Student Dashboard Logic
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Automatically detect if running under /mock
+    const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+    const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
+
     const token = localStorage.getItem('token');
     if (!token) {
-        window.location.href = 'index.html';
+        window.location.href = '/index.html';
         return;
     }
 
@@ -27,21 +31,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Fix 2: show roll number and branch from stored user object
     const rollEl = document.getElementById('studentRoll');
     const branchEl = document.getElementById('studentBranch');
+    const programmeEl = document.getElementById('studentProgramme');
     if (rollEl) rollEl.innerText = user.roll_number ? `Roll No: ${user.roll_number}` : 'Roll No: —';
-    if (branchEl) branchEl.innerText = user.branch || '—';
+    if (branchEl) branchEl.innerText = user.branch || user.discipline || '—';
+    if (programmeEl) {
+        const prog = user.programme || '';
+        if (prog) {
+            programmeEl.innerText = prog;
+            programmeEl.style.display = 'inline-block';
+        } else {
+            programmeEl.style.display = 'none';
+        }
+    }
 
     // ---------- Logout ----------
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.clear();
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         });
+    }
+
+    // ---------- Admin Console Button Check ----------
+    // Silently probe the admin API — if the JWT is whitelisted as admin,
+    // reveal the "⚙️ Admin Console" button in the navbar.
+    const adminConsoleBtn = document.getElementById('adminConsoleBtn');
+    if (adminConsoleBtn) {
+        fetch('/api/admin/overview', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => {
+            if (res.ok) {
+                adminConsoleBtn.style.display = 'inline-flex';
+                adminConsoleBtn.style.alignItems = 'center';
+                adminConsoleBtn.style.gap = '6px';
+                adminConsoleBtn.addEventListener('click', () => {
+                    window.location.href = '/admin';
+                });
+            }
+        }).catch(() => {});
     }
 
     // ---------- Fetch Dashboard Data ----------
     try {
-        const response = await fetch('/api/users/dashboard', {
+        const response = await fetch(`${API_BASE}/users/dashboard`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -89,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Dashboard Error:', err);
         if (String(err.message).includes('401')) {
             localStorage.clear();
-            window.location.href = 'index.html';
+            window.location.href = '/index.html';
         }
     }
 
@@ -124,7 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             localStorage.setItem('currentTestId', testId);
-            window.location.href = 'test-arena.html';
+            window.location.href = '/test-arena.html';
         };
     }
 });
@@ -152,6 +185,6 @@ function startTest(testId) {
 function goToReview(resultId, testId) {
     localStorage.setItem('reviewResultId', resultId);
     localStorage.setItem('reviewTestId', testId);
-    window.location.href = 'review.html';
+    window.location.href = '/review.html';
 }
 

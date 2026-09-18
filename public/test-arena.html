@@ -8,19 +8,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1a73e8;
-            --secondary: #fce8e6;
-            --text-dark: #202124;
-            --text-light: #5f6368;
-            --border: #dadce0;
-            --success: #0f9d58;
-            --warning: #f29900;
+            --primary: #C4D1EC;
+            --secondary: #27272A;
+            --text-dark: #FFFFFF;
+            --text-light: #A1A1AA;
+            --border: #2E2E32;
+            --success: #22C55E;
+            --warning: #F59E0B;
         }
 
         body {
             font-family: 'Inter', sans-serif;
             margin: 0;
-            background-color: #f8f9fa;
+            background-color: #121214;
+            color: #FFFFFF;
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -28,9 +29,9 @@
 
         /* Header */
         header {
-            background: #fff;
+            background: #161618;
             padding: 1rem 2rem;
-            border-bottom: 2px solid var(--border);
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -39,12 +40,13 @@
         .test-title {
             font-size: 1.25rem;
             font-weight: 600;
-            color: var(--text-dark);
+            color: #FFFFFF;
         }
 
         .timer-badge {
-            background: #feebeb;
-            color: #d93025;
+            background: rgba(239, 68, 68, 0.15);
+            color: #EF4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-weight: 700;
@@ -54,8 +56,9 @@
         }
 
         .timer-badge.safe {
-            background: #e6f4ea;
-            color: var(--success);
+            background: rgba(34, 197, 94, 0.15);
+            color: #22C55E;
+            border: 1px solid rgba(34, 197, 94, 0.3);
         }
 
         /* Main Arena */
@@ -70,7 +73,7 @@
             flex: 3;
             padding: 2rem;
             overflow-y: auto;
-            background: #fff;
+            background: #121214;
         }
 
         .q-header {
@@ -78,19 +81,30 @@
             justify-content: space-between;
             margin-bottom: 1.5rem;
             align-items: flex-end;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
         }
 
         .q-number {
             font-size: 1.1rem;
             font-weight: 600;
-            color: var(--primary);
+            color: #C4D1EC;
+        }
+
+        .q-marks {
+            font-size: 0.85rem;
+            color: #A1A1AA;
         }
 
         .q-text {
-            font-size: 1.15rem;
-            color: var(--text-dark);
+            font-size: 1.1rem;
+            color: #FFFFFF;
             line-height: 1.6;
             margin-bottom: 2rem;
+            background: #1C1C1F;
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            border-radius: 8px;
         }
 
         .options-list {
@@ -99,9 +113,9 @@
         }
 
         .option-item {
-            background: #f8f9fa;
+            background: #1C1C1F;
             border: 1px solid var(--border);
-            padding: 1rem;
+            padding: 1rem 1.25rem;
             margin-bottom: 1rem;
             border-radius: 8px;
             cursor: pointer;
@@ -109,16 +123,18 @@
             align-items: center;
             gap: 15px;
             transition: 0.2s;
+            color: #FFFFFF;
         }
 
         .option-item:hover {
-            border-color: var(--primary);
-            background: #f1f3f4;
+            border-color: #3F3F46;
+            background: #27272A;
         }
 
         .option-item input[type="radio"] {
             transform: scale(1.2);
             cursor: pointer;
+            accent-color: #C4D1EC;
         }
 
         /* Action Buttons */
@@ -141,38 +157,59 @@
 
         .btn-outline {
             background: transparent;
-            border: 2px solid var(--border);
-            color: var(--text-dark);
+            border: 1px solid var(--border);
+            color: #FFFFFF;
         }
 
         .btn-outline:hover {
-            background: #f1f3f4;
-            border-color: var(--text-dark);
+            background: #27272A;
+            border-color: #3F3F46;
         }
 
         .btn-primary {
-            background: var(--primary);
-            color: white;
+            background: #C4D1EC;
+            color: #121214;
         }
 
         .btn-primary:hover {
-            opacity: 0.9;
+            background: #D4E0F7;
         }
 
         .btn-submit {
-            background: var(--success);
-            color: white;
+            background: #22C55E;
+            color: #121214;
         }
 
         .btn-submit:hover {
             opacity: 0.9;
         }
 
+        .btn-section-submit {
+            background: transparent;
+            border: 1px solid #C4D1EC;
+            color: #C4D1EC;
+        }
+
+        .btn-section-submit:hover {
+            background: rgba(196, 209, 236, 0.12);
+        }
+
+        /* Submit action bar below questions */
+        .submit-action-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
         /* Palette Section */
         .palette-section {
             flex: 1;
             min-width: 300px;
-            background: #f8f9fa;
+            background: #161618;
             border-left: 1px solid var(--border);
             padding: 2rem;
             overflow-y: auto;
@@ -184,7 +221,7 @@
             font-size: 1rem;
             font-weight: 600;
             margin-bottom: 1.5rem;
-            color: var(--text-dark);
+            color: #FFFFFF;
         }
 
         .palette-grid {
@@ -197,8 +234,9 @@
         .palette-box {
             aspect-ratio: 1;
             display: flex;
-            border: 2px solid var(--border);
-            background: white;
+            border: 1px solid var(--border);
+            background: #18181B;
+            color: #FFFFFF;
             align-items: center;
             justify-content: center;
             border-radius: 6px;
@@ -208,18 +246,18 @@
         }
 
         .palette-box:hover {
-            border-color: var(--text-dark);
+            border-color: #3F3F46;
         }
 
         .palette-box.active {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.3);
+            border-color: #C4D1EC;
+            box-shadow: 0 0 0 2px rgba(196, 209, 236, 0.3);
         }
 
         .palette-box.answered {
-            background: var(--success);
-            color: white;
-            border-color: var(--success);
+            background: #22C55E;
+            color: #121214;
+            border-color: #22C55E;
         }
 
         /* Palette Legend */
@@ -235,7 +273,7 @@
             gap: 10px;
             margin-bottom: 10px;
             font-size: 0.85rem;
-            color: var(--text-light);
+            color: #A1A1AA;
         }
 
         .legend-box {
@@ -243,16 +281,17 @@
             height: 20px;
             border-radius: 4px;
             border: 1px solid var(--border);
+            background: #18181B;
         }
 
         .legend-answered {
-            background: var(--success);
-            border-color: var(--success);
+            background: #22C55E;
+            border-color: #22C55E;
         }
 
         .legend-current {
             border-color: var(--primary);
-            box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.3);
+            box-shadow: 0 0 0 1px rgba(196, 209, 236, 0.3);
         }
 
         @media (max-width: 800px) {
@@ -292,23 +331,24 @@
         }
 
         .modal-box {
-            background: white;
+            background: #1C1C1F;
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 2rem;
             max-width: 420px;
             width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
             text-align: center;
         }
 
         .modal-box h3 {
             font-size: 1.2rem;
-            color: var(--text-dark);
+            color: #FFFFFF;
             margin-bottom: 0.5rem;
         }
 
         .modal-box p {
-            color: var(--text-light);
+            color: #A1A1AA;
             margin-bottom: 1.5rem;
             font-size: 0.95rem;
         }
@@ -329,7 +369,7 @@
             position: fixed;
             inset: 0;
             z-index: 3000;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
             align-items: center;
@@ -342,13 +382,14 @@
         }
 
         .violation-box {
-            background: white;
+            background: #1C1C1F;
+            border: 1px solid var(--border);
             border-radius: 14px;
             padding: 2.5rem 2rem;
             max-width: 440px;
             width: 90%;
             text-align: center;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
             animation: popIn 0.3s cubic-bezier(.175, .885, .32, 1.275);
         }
 
@@ -527,9 +568,18 @@
                 <!-- Palette buttons populated dynamically -->
             </div>
 
-            <button type="button" class="btn btn-submit" style="width: 100%; margin-top: 1rem;"
-                id="submitTestBtn">Submit Final
-                Test</button>
+            <!-- Contextual submit buttons below the palette grid -->
+            <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 10px;">
+                <!-- Shown on non-last sections -->
+                <button type="button" class="btn btn-section-submit" id="submitSectionBtn"
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #C4D1EC; color: #C4D1EC;
+                           background: transparent; border-radius: 6px; font-weight: 600;
+                           cursor: pointer; font-family: inherit; transition: 0.2s;"
+                    >⚑ Save &amp; Submit Section</button>
+                <!-- Shown on last section -->
+                <button type="button" class="btn btn-submit" style="width: 100%;"
+                    id="submitTestBtn">Submit Final Test</button>
+            </div>
 
             <div class="legend">
                 <div class="legend-item">
@@ -568,7 +618,7 @@
             <h1 id="scoreDisplay" style="color: var(--primary); margin: 1rem 0; font-size: 2.5rem;">0 / 0</h1>
             <p>Your results have been saved.</p>
             <div class="modal-actions">
-                <button type="button" class="btn btn-primary" onclick="window.location.href='dashboard.html'"
+                <button type="button" class="btn btn-primary" onclick="window.location.href='/dashboard.html'"
                     style="width: 100%;">Return to Dashboard</button>
             </div>
         </div>

@@ -1,5 +1,9 @@
 // test-arena.js — Exam Logic with session persistence & custom modal
 
+// Automatically detect if running under /mock or /mock_test or root
+const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
+
 const token = localStorage.getItem('token');
 const testId = localStorage.getItem('currentTestId');
 
@@ -66,12 +70,12 @@ const SECTION_INDEX_KEY = `currentSec_${testId}`;
 // ---------- Boot ----------
 document.addEventListener('DOMContentLoaded', async () => {
     if (!token || !testId) {
-        window.location.href = 'dashboard.html';
+        window.location.href = '/dashboard.html';
         return;
     }
 
     try {
-        const response = await fetch(`/api/tests/${testId}`, {
+        const response = await fetch(`${API_BASE}/tests/${testId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -123,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (err) {
         alert('Error loading test: ' + err.message);
-        window.location.href = 'dashboard.html';
+        window.location.href = '/dashboard.html';
     }
 });
 
@@ -211,7 +215,7 @@ function renderQuestion(index) {
                        oninput="handleNatInput(${q.id}, this.value)">
             </div>
             <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
-                <i>Marks: +${parseFloat(q.marks || 4)} / -${parseFloat(q.negative_marks || 1)}</i>
+                <i>Marks: +${parseFloat(q.marks ?? 4)} / -${parseFloat(q.negative_marks ?? 1)}</i>
             </div>
         `;
     } else {
@@ -241,9 +245,26 @@ function renderQuestion(index) {
 
         list.innerHTML += `
             <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
-                <i>Marks: +${parseFloat(q.marks || 4)} / -${parseFloat(q.negative_marks || 1)}</i>
+                <i>Marks: +${parseFloat(q.marks ?? 4)} / -${parseFloat(q.negative_marks ?? 1)}</i>
             </div>
         `;
+
+        // Bug 3: Clear Selection button — only shown when an answer is selected
+        if (userAnswers[q.id] !== undefined) {
+            list.innerHTML += `
+                <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                    <button type="button"
+                        onclick="clearSelection(${q.id})"
+                        style="background: transparent; border: 1px solid #3F3F46; border-radius: 6px;
+                               color: #A1A1AA; font-size: 0.82rem; padding: 5px 14px; cursor: pointer;
+                               transition: all 0.2s; font-family: inherit;"
+                        onmouseover="this.style.borderColor='#EF4444';this.style.color='#EF4444';"
+                        onmouseout="this.style.borderColor='#3F3F46';this.style.color='#A1A1AA';">
+                        ✕ Clear Selection
+                    </button>
+                </div>
+            `;
+        }
     }
 
     updatePaletteUI();
@@ -259,11 +280,38 @@ function renderQuestion(index) {
     } else {
         nextBtn.innerText = 'Save & Next';
     }
+
+    // ── Contextual sidebar submit buttons: show Section or Final Test button ──
+    const sectionBtn = document.getElementById('submitSectionBtn');
+    const finalTestBtn = document.getElementById('submitTestBtn');
+    const isLastSection = currentSectionIndex === currentSections.length - 1;
+
+    if (isLastSection) {
+        // Last section: show "Submit Final Test", hide "Submit Section"
+        if (sectionBtn) sectionBtn.style.display = 'none';
+        if (finalTestBtn) finalTestBtn.style.display = 'block';
+    } else {
+        // Mid sections: show "Submit Section", hide "Submit Final Test"
+        if (sectionBtn) sectionBtn.style.display = 'block';
+        if (finalTestBtn) finalTestBtn.style.display = 'none';
+    }
 }
 
+// ── Bug 3 Fix: Toggle deselect — clicking a selected option unselects it ──
 function selectOption(qId, key) {
-    userAnswers[qId] = key;
-    // Persist to sessionStorage immediately
+    if (userAnswers[qId] === key) {
+        // Already selected — deselect (clear the answer)
+        delete userAnswers[qId];
+    } else {
+        userAnswers[qId] = key;
+    }
+    sessionStorage.setItem(ANSWERS_KEY, JSON.stringify(userAnswers));
+    renderQuestion(currentIndex);
+}
+
+// Explicit clear button handler
+function clearSelection(qId) {
+    delete userAnswers[qId];
     sessionStorage.setItem(ANSWERS_KEY, JSON.stringify(userAnswers));
     renderQuestion(currentIndex);
 }
@@ -366,6 +414,19 @@ function showSectionCompleteModal() {
     submitModal.classList.add('active');
 }
 
+// ── Wire sidebar submit buttons after DOM is ready ───────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    // "Save & Submit Section" button in palette sidebar (visible on non-last sections)
+    const submitSectionBtn = document.getElementById('submitSectionBtn');
+    if (submitSectionBtn) {
+        submitSectionBtn.onclick = () => {
+            showSectionCompleteModal();
+        };
+    }
+    // Note: submitTestBtn (sidebar) is wired above via document.getElementById('submitTestBtn').onclick
+});
+
+
 // ---------- Actual Submission ----------
 async function performSubmit() {
     if (isSubmitting) return;
@@ -393,7 +454,7 @@ async function performSubmit() {
             }
         }
 
-        const response = await fetch(`/api/tests/${testId}/submit`, {
+        const response = await fetch(`${API_BASE}/tests/${testId}/submit`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -417,6 +478,10 @@ async function performSubmit() {
             for (let i = 0; i < 10; i++) {
                 sessionStorage.removeItem(`${SECTION_STARTTIME_KEY}_${i}`);
             }
+            // BUG-002 FIX: Clear currentTestId so pressing Back after
+            // leaving test-arena redirects to dashboard instead of re-loading
+            // the already-submitted test.
+            localStorage.removeItem('currentTestId');
 
             const resultModal = document.getElementById('resultModal');
             let maxScore = 0;
