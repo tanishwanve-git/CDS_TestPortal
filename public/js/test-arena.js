@@ -2,7 +2,8 @@
 
 // Automatically detect if running under /mock or /mock_test or root
 const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
-const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
+const BASE_PATH = subpathMatch ? subpathMatch[1] : '';
+const API_BASE = `${BASE_PATH}/api`;
 
 const token = localStorage.getItem('token');
 const testId = localStorage.getItem('currentTestId');
@@ -70,7 +71,7 @@ const SECTION_INDEX_KEY = `currentSec_${testId}`;
 // ---------- Boot ----------
 document.addEventListener('DOMContentLoaded', async () => {
     if (!token || !testId) {
-        window.location.href = '/dashboard.html';
+        window.location.href = `${BASE_PATH}/dashboard.html`;
         return;
     }
 
@@ -127,7 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (err) {
         alert('Error loading test: ' + err.message);
-        window.location.href = '/dashboard.html';
+        window.location.href = `${BASE_PATH}/dashboard.html`;
     }
 });
 
@@ -193,7 +194,9 @@ function renderQuestion(index) {
     const getDirectUrl = (url) => {
         if (!url) return '';
         const m = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
-        return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
+        if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+        // Prefix root-relative paths (e.g. "/questions/...") with the detected /mock subpath
+        return url.startsWith('/') ? `${BASE_PATH}${url}` : url;
     };
 
     let qHtml = q.question_text.replace(/\n/g, '<br>');
@@ -231,7 +234,7 @@ function renderQuestion(index) {
 
             let displayValue = value;
             if (isImage) {
-                const directUrl = isDriveLink ? getDirectUrl(value) : value;
+                const directUrl = getDirectUrl(value);
                 displayValue = `<br><img src="${directUrl}" alt="Option ${key}" style="max-height: 150px; max-width: 100%; border-radius: 4px; margin-top: 10px;">`;
             }
 

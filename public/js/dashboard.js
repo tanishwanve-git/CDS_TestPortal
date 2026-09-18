@@ -1,13 +1,14 @@
 // dashboard.js - Student Dashboard Logic
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Automatically detect if running under /mock
-    const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
-    const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
+// Automatically detect if running under /mock (module scope so all functions can use it)
+const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+const BASE_PATH = subpathMatch ? subpathMatch[1] : '';
+const API_BASE = `${BASE_PATH}/api`;
 
+document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-        window.location.href = '/index.html';
+        window.location.href = `${BASE_PATH}/index.html`;
         return;
     }
 
@@ -49,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             localStorage.clear();
-            window.location.href = '/index.html';
+            window.location.href = `${BASE_PATH}/index.html`;
         });
     }
 
@@ -58,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // reveal the "⚙️ Admin Console" button in the navbar.
     const adminConsoleBtn = document.getElementById('adminConsoleBtn');
     if (adminConsoleBtn) {
-        fetch('/api/admin/overview', {
+        fetch(`${API_BASE}/admin/overview`, {
             headers: { 'Authorization': `Bearer ${token}` }
         }).then(res => {
             if (res.ok) {
@@ -66,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 adminConsoleBtn.style.alignItems = 'center';
                 adminConsoleBtn.style.gap = '6px';
                 adminConsoleBtn.addEventListener('click', () => {
-                    window.location.href = '/admin';
+                    window.location.href = `${BASE_PATH}/admin`;
                 });
             }
         }).catch(() => {});
@@ -122,7 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Dashboard Error:', err);
         if (String(err.message).includes('401')) {
             localStorage.clear();
-            window.location.href = '/index.html';
+            window.location.href = `${BASE_PATH}/index.html`;
         }
     }
 
@@ -157,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             localStorage.setItem('currentTestId', testId);
-            window.location.href = '/test-arena.html';
+            window.location.href = `${BASE_PATH}/test-arena.html`;
         };
     }
 });
@@ -185,6 +186,6 @@ function startTest(testId) {
 function goToReview(resultId, testId) {
     localStorage.setItem('reviewResultId', resultId);
     localStorage.setItem('reviewTestId', testId);
-    window.location.href = '/review.html';
+    window.location.href = `${BASE_PATH}/review.html`;
 }
 

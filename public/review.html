@@ -262,7 +262,7 @@
     </div>
 
     <div class="review-body">
-        <button class="back-btn" onclick="window.location.href='/dashboard.html'">
+        <button class="back-btn" onclick="window.location.href=BASE_PATH+'/dashboard.html'">
             ← Back to Dashboard
         </button>
 
@@ -305,17 +305,23 @@
     </div>
 
     <script>
+        const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
+        const BASE_PATH = subpathMatch ? subpathMatch[1] : '';
+        const API_BASE = `${BASE_PATH}/api`;
+
+        // Prefix root-relative paths (e.g. "/questions/...") with the detected /mock subpath
+        function resolveUrl(url) {
+            return (typeof url === 'string' && url.startsWith('/')) ? `${BASE_PATH}${url}` : url;
+        }
+
         const token = localStorage.getItem('token');
         const resultId = localStorage.getItem('reviewResultId');
 
-        if (!token || !resultId) window.location.href = '/dashboard.html';
-
-        const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
-        const API_BASE = subpathMatch ? `${subpathMatch[1]}/api` : '/api';
+        if (!token || !resultId) window.location.href = `${BASE_PATH}/dashboard.html`;
 
         document.getElementById('logoutBtn').onclick = () => {
             localStorage.clear();
-            window.location.href = '/index.html';
+            window.location.href = `${BASE_PATH}/index.html`;
         };
 
         async function loadReview() {
@@ -384,7 +390,7 @@
 
                         const isImage = (typeof val === 'string' && val.match(/^(https?:\/\/|\/).*\.(png|jpg|jpeg|gif|webp|svg)$/i));
                         let displayValue = isImage
-                            ? `<br><img src="${val}" alt="Option ${key}" style="max-height: 120px; max-width: 100%; border-radius: 4px; margin-top: 5px;">`
+                            ? `<br><img src="${resolveUrl(val)}" alt="Option ${key}" style="max-height: 120px; max-width: 100%; border-radius: 4px; margin-top: 5px;">`
                             : val;
                         // Logic: Highlight if THEY chose it. Never tell what is true.
                         if (key === studentAns) {
@@ -406,7 +412,7 @@
 
                     let qHtml = q.question_text.replace(/\n/g, '<br>');
                     if (q.image_url && q.image_url.trim() !== '') {
-                        qHtml += `<br><img src="${q.image_url}" alt="Question Image" style="max-width: 100%; max-height: 350px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+                        qHtml += `<br><img src="${resolveUrl(q.image_url)}" alt="Question Image" style="max-width: 100%; max-height: 350px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
                     }
 
                     container.innerHTML += `

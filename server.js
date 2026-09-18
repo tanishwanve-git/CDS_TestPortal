@@ -34,8 +34,8 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'CDS Portal API is running' });
 });
 
-// Serve the Admin Dashboard SPA for /admin
-app.get('/admin', (req, res) => {
+// Serve the Admin Dashboard SPA for /admin (supports direct or /mock subpath)
+app.get(['/admin', '/mock/admin'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
