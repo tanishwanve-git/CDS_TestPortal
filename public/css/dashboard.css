@@ -452,3 +452,44 @@
     color: #FFFFFF;
     border-color: #3F3F46;
 }
+/* ── Mock-exam dashboard additions ─────────────────────────────────────── */
+
+.section-hint {
+    color: #A1A1AA;
+    font-size: 0.9rem;
+    margin: -0.5rem 0 1.25rem;
+    max-width: 70ch;
+    line-height: 1.6;
+}
+
+/* The exam matching the student's own discipline is pinned first and marked */
+.test-card-mine {
+    border-left-color: #22C55E;
+}
+
+.test-card p:last-of-type {
+    margin-bottom: 1rem;
+}
+
+.test-card .branch-tag {
+    margin-left: 6px;
+}
+
+/* Test-name cells in the score history double as review links */
+.review-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #C4D1EC;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.review-btn:hover {
+    color: #FFFFFF;
+}

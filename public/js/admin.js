@@ -21,6 +21,15 @@ function fmt(v, fallback = '—') {
     return v;
 }
 
+// Scores arrive as MySQL DECIMALs (strings like "70.00") from the mock tables and
+// as plain numbers from the legacy ones; render both the same way.
+function fmtScore(v, fallback = '—') {
+    if (v === null || v === undefined || v === '') return fallback;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return fallback;
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
 function fmtDate(iso) {
     if (!iso) return '—';
     return new Date(iso).toLocaleString('en-IN', {
@@ -253,8 +262,11 @@ function loadOverview(data) {
                     <div class="name-cell">${escHtml(r.student_name)}</div>
                     <div class="sub-text">${escHtml(r.roll_number || '—')}</div>
                 </td>
-                <td>${escHtml(r.test_title)}</td>
-                <td><strong>${r.score}</strong></td>
+                <td>
+                    ${escHtml(r.test_title)}
+                    ${r.kind === 'mock' ? '<span class="badge badge-neutral" style="margin-left:6px">Mock</span>' : ''}
+                </td>
+                <td><strong>${fmtScore(r.score)}</strong></td>
                 <td>${fmtDate(r.created_at)}</td>
             </tr>
         `).join('');
@@ -472,13 +484,16 @@ async function loadTests() {
         } else {
             tbody.innerHTML = data.tests.map(t => `
                 <tr>
-                    <td><div class="name-cell">${escHtml(t.title)}</div></td>
+                    <td>
+                        <div class="name-cell">${escHtml(t.title)}</div>
+                        ${t.kind === 'mock' ? `<div class="sub-text">Mock exam · ${t.total_questions} drawn per attempt</div>` : ''}
+                    </td>
                     <td>${t.duration_minutes} min</td>
-                    <td>${t.question_count}</td>
+                    <td title="${t.kind === 'mock' ? 'Questions in the bank this exam draws from' : 'Questions in this fixed paper'}">${t.question_count}</td>
                     <td>${t.attempt_count}</td>
                     <td>${t.unique_students}</td>
-                    <td>${fmt(t.avg_score, '—')}</td>
-                    <td>${fmt(t.max_score, '—')} / ${fmt(t.min_score, '—')}</td>
+                    <td>${fmtScore(t.avg_score)}</td>
+                    <td>${fmtScore(t.max_score)} / ${fmtScore(t.min_score)}</td>
                     <td>${fmtDate(t.created_at)}</td>
                 </tr>
             `).join('');
@@ -513,14 +528,17 @@ async function loadAttempts(page = 1) {
                     </td>
                     <td>${fmt(a.roll_number)}</td>
                     <td>${a.branch ? `<span class="badge badge-neutral">${escHtml(a.branch)}</span>` : '—'}</td>
-                    <td>${escHtml(a.test_title)}</td>
-                    <td><strong>${a.score}</strong> / ${(a.total_questions || 50) * 4}</td>
+                    <td>
+                        ${escHtml(a.test_title)}
+                        ${a.kind === 'mock' ? '<span class="badge badge-neutral" style="margin-left:6px">Mock</span>' : ''}
+                    </td>
+                    <td><strong>${fmtScore(a.score)}</strong> / ${fmtScore(a.max_score)}</td>
                     <td>${fmtTime(a.time_taken_seconds)}</td>
                     <td>${a.has_violation ? '<span class="badge badge-danger">⚠️ Yes</span>' : '<span class="badge badge-neutral">—</span>'}</td>
                     <td>${fmtDate(a.created_at)}</td>
                     <td>
                         <button class="btn btn-outline btn-sm btn-icon" title="View Attempt Detail"
-                            onclick="openAttemptDetail(${a.id})">🔍</button>
+                            onclick="openAttemptDetail(${a.id}, '${a.kind || 'legacy'}')">🔍</button>
                     </td>
                 </tr>
             `).join('');
@@ -532,7 +550,7 @@ async function loadAttempts(page = 1) {
     }
 }
 
-async function openAttemptDetail(resultId) {
+async function openAttemptDetail(resultId, kind = 'legacy') {
     const panel = document.getElementById('attemptDetail');
     const content = document.getElementById('attemptDetailContent');
     panel.classList.add('open');
@@ -540,7 +558,7 @@ async function openAttemptDetail(resultId) {
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     try {
-        const data = await apiFetch(`/attempts/${resultId}`);
+        const data = await apiFetch(`/attempts/${resultId}?kind=${encodeURIComponent(kind)}`);
         const r = data.result;
 
         const correctCount = data.questions.filter(q => q.is_correct === true).length;
@@ -577,6 +595,8 @@ async function openAttemptDetail(resultId) {
                         <div class="q-status-dot"></div>
                         <div class="q-text">
                             <strong>Q${i+1}. ${escHtml(truncate(q.question_text, 120))}</strong>
+                            ${q.image_url ? ` <a href="${escHtml(q.image_url)}" target="_blank" rel="noopener"
+                                style="color:var(--accent-light);font-size:12px;text-decoration:underline">view image</a>` : ''}
                             <div style="margin-top:4px">
                                 <span style="color:var(--text-muted)">Student: </span>
                                 <span style="color:${q.is_skipped ? 'var(--text-muted)' : (q.is_correct ? 'var(--success)' : 'var(--danger)')}">${escHtml(optLabel)}</span>

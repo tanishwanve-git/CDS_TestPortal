@@ -47,9 +47,24 @@ exports.getDashboardData = async (req, res) => {
             ORDER BY t.created_at DESC
         `, [userId]);
 
+        // Mock-exam attempt history (the randomised papers drawn from Question_Bank).
+        // Kept separate from `history` above because a mock exam can be re-attempted
+        // any number of times, while a legacy Test can be sat only once.
+        const [mockHistory] = await pool.query(`
+            SELECT a.id AS attempt_id, a.exam_id, a.score, a.max_score, a.total_questions,
+                   a.total_correct, a.total_wrong, a.total_answered,
+                   a.time_taken_seconds, a.submitted_at, e.title, e.code
+            FROM Exam_Attempts a
+            JOIN Mock_Exams e ON e.id = a.exam_id
+            WHERE a.student_id = ? AND a.status = 'submitted'
+            ORDER BY a.submitted_at DESC
+            LIMIT 100
+        `, [userId]);
+
         res.json({
             history: results,
-            availableTests: availableTests
+            availableTests: availableTests,
+            mockHistory: mockHistory
         });
     } catch (error) {
         console.error('Dashboard Data Error:', error);

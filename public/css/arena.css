@@ -1,0 +1,672 @@
+/* arena.css - shared exam-arena styling.
+   Used by test-arena.html (legacy fixed tests) and exam-arena.html
+   (randomised mock exams) so the two pages never drift apart. */
+:root {
+    --primary: #C4D1EC;
+    --secondary: #27272A;
+    --text-dark: #FFFFFF;
+    --text-light: #A1A1AA;
+    --border: #2E2E32;
+    --success: #22C55E;
+    --warning: #F59E0B;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    background-color: #121214;
+    color: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Header */
+header {
+    background: #161618;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.test-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+.timer-badge {
+    background: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 700;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.timer-badge.safe {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22C55E;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Main Arena */
+.arena {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Question Section */
+.question-section {
+    flex: 3;
+    padding: 2rem;
+    overflow-y: auto;
+    background: #121214;
+}
+
+.q-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    align-items: flex-end;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.q-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #C4D1EC;
+}
+
+.q-marks {
+    font-size: 0.85rem;
+    color: #A1A1AA;
+}
+
+.q-text {
+    font-size: 1.1rem;
+    color: #FFFFFF;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    background: #1C1C1F;
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.options-list {
+    list-style: none;
+    padding: 0;
+}
+
+.option-item {
+    background: #1C1C1F;
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: 0.2s;
+    color: #FFFFFF;
+}
+
+.option-item:hover {
+    border-color: #3F3F46;
+    background: #27272A;
+}
+
+.option-item input[type="radio"] {
+    transform: scale(1.2);
+    cursor: pointer;
+    accent-color: #C4D1EC;
+}
+
+/* Action Buttons */
+.q-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #FFFFFF;
+}
+
+.btn-outline:hover {
+    background: #27272A;
+    border-color: #3F3F46;
+}
+
+.btn-primary {
+    background: #C4D1EC;
+    color: #121214;
+}
+
+.btn-primary:hover {
+    background: #D4E0F7;
+}
+
+.btn-submit {
+    background: #22C55E;
+    color: #121214;
+}
+
+.btn-submit:hover {
+    opacity: 0.9;
+}
+
+.btn-section-submit {
+    background: transparent;
+    border: 1px solid #C4D1EC;
+    color: #C4D1EC;
+}
+
+.btn-section-submit:hover {
+    background: rgba(196, 209, 236, 0.12);
+}
+
+/* Submit action bar below questions */
+.submit-action-bar {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+/* Palette Section */
+.palette-section {
+    flex: 1;
+    min-width: 300px;
+    background: #161618;
+    border-left: 1px solid var(--border);
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.palette-header {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #FFFFFF;
+}
+
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 2rem;
+}
+
+.palette-box {
+    aspect-ratio: 1;
+    display: flex;
+    border: 1px solid var(--border);
+    background: #18181B;
+    color: #FFFFFF;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.palette-box:hover {
+    border-color: #3F3F46;
+}
+
+.palette-box.active {
+    border-color: #C4D1EC;
+    box-shadow: 0 0 0 2px rgba(196, 209, 236, 0.3);
+}
+
+.palette-box.answered {
+    background: #22C55E;
+    color: #121214;
+    border-color: #22C55E;
+}
+
+/* Palette Legend */
+.legend {
+    margin-top: auto;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    color: #A1A1AA;
+}
+
+.legend-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #18181B;
+}
+
+.legend-answered {
+    background: #22C55E;
+    border-color: #22C55E;
+}
+
+.legend-current {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(196, 209, 236, 0.3);
+}
+
+@media (max-width: 800px) {
+    .arena {
+        flex-direction: column;
+    }
+
+    .palette-section {
+        order: -1;
+        border-left: none;
+        border-bottom: 1px solid var(--border);
+        padding: 1rem;
+        min-height: 200px;
+    }
+
+    .question-section {
+        padding: 1rem;
+    }
+}
+
+/* Custom Confirm Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-box {
+    background: #1C1C1F;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    text-align: center;
+}
+
+.modal-box h3 {
+    font-size: 1.2rem;
+    color: #FFFFFF;
+    margin-bottom: 0.5rem;
+}
+
+.modal-box p {
+    color: #A1A1AA;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.modal-actions .btn {
+    min-width: 120px;
+}
+
+/* ── Violation Modal (centered, blurs the test) ────────────────── */
+.violation-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+}
+
+.violation-overlay.show {
+    display: flex;
+    animation: fadeIn 0.25s ease;
+}
+
+.violation-box {
+    background: #1C1C1F;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2.5rem 2rem;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    animation: popIn 0.3s cubic-bezier(.175, .885, .32, 1.275);
+}
+
+.violation-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.violation-box h3 {
+    color: #d93025;
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+}
+
+.violation-box p {
+    color: #5f6368;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1.75rem;
+}
+
+.violation-box button {
+    background: #d93025;
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s;
+}
+
+.violation-box button:hover {
+    opacity: 0.85;
+}
+
+/* ── Fullscreen Entry Overlay ─────────────────────────────────────── */
+.fs-entry-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: #1a1a2e;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    gap: 1.5rem;
+    cursor: pointer;
+}
+
+.fs-entry-overlay.show {
+    display: flex;
+}
+
+.fs-entry-overlay svg {
+    opacity: 0.9;
+    animation: pulse 1.5s infinite;
+}
+
+.fs-entry-overlay h2 {
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.fs-entry-overlay p {
+    font-size: 0.95rem;
+    opacity: 0.7;
+    margin: 0;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Mock-exam arena additions ──────────────────────────────────────────────
+   The mock arena runs one clock for the whole paper and lets the student move
+   freely between sections, so it needs section tabs and a section-grouped
+   palette that the legacy per-section arena never had. */
+
+.section-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.section-tab {
+    background: #18181B;
+    border: 1px solid var(--border);
+    color: #A1A1AA;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+    white-space: nowrap;
+}
+
+.section-tab:hover {
+    border-color: #3F3F46;
+    color: #FFFFFF;
+}
+
+.section-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #121214;
+}
+
+.section-tab .tab-count {
+    opacity: 0.75;
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+/* Question image (the whole question, options included, is a PNG crop) */
+.q-image {
+    display: block;
+    width: 100%;
+    max-width: 900px;
+    height: auto;
+    background: #FFFFFF;
+    border-radius: 6px;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.q-image-wrap {
+    position: relative;
+}
+
+.q-image-zoom {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(18, 18, 20, 0.75);
+    border: 1px solid var(--border);
+    color: #FFFFFF;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.q-loading {
+    color: #A1A1AA;
+    font-size: 0.9rem;
+    padding: 2rem 0;
+}
+
+/* Lightbox for reading a dense question image full-size */
+.image-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(0, 0, 0, 0.9);
+    overflow: auto;
+    cursor: zoom-out;
+    padding: 2rem;
+}
+
+.image-lightbox.show {
+    display: block;
+}
+
+.image-lightbox img {
+    display: block;
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-radius: 6px;
+    padding: 16px;
+    box-sizing: border-box;
+    max-width: 1400px;
+    width: 100%;
+    height: auto;
+}
+
+/* NAT numeric input */
+.nat-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #1C1C1F;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: #FFFFFF;
+}
+
+.nat-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.nat-hint {
+    color: #A1A1AA;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+/* Section-grouped question palette */
+.palette-section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #A1A1AA;
+    margin: 1.25rem 0 0.6rem;
+}
+
+.palette-section-label:first-child {
+    margin-top: 0;
+}
+
+.palette-grid.compact {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.palette-box.visited:not(.answered) {
+    border-color: #F59E0B;
+}
+
+.legend-visited {
+    border-color: #F59E0B;
+}
+
+.autosave-note {
+    font-size: 0.75rem;
+    color: #A1A1AA;
+    margin-top: 0.75rem;
+    text-align: center;
+    min-height: 1em;
+}
+
+.attempt-summary {
+    color: #A1A1AA;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+}
+
+.attempt-summary strong {
+    color: #FFFFFF;
+}

@@ -5,7 +5,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "import:bank": "node database/import_question_bank.js",
+    "import:bank:dry": "node database/import_question_bank.js --dry-run",
+    "import:bank:reset": "node database/import_question_bank.js --reset",
+    "seed:students": "node database/seed_allowed_students.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

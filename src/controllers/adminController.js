@@ -7,12 +7,28 @@ exports.getOverview = async (req, res) => {
         const pool = await getPool;
 
         const [[{ total_students }]] = await pool.query('SELECT COUNT(*) AS total_students FROM Students');
-        const [[{ total_tests }]] = await pool.query('SELECT COUNT(*) AS total_tests FROM Tests');
-        const [[{ total_attempts }]] = await pool.query('SELECT COUNT(*) AS total_attempts FROM Test_Results');
-        const [[{ avg_score }]] = await pool.query('SELECT ROUND(AVG(score), 2) AS avg_score FROM Test_Results');
-        const [[{ max_score }]] = await pool.query('SELECT MAX(score) AS max_score FROM Test_Results');
-        const [[{ min_score }]] = await pool.query('SELECT MIN(score) AS min_score FROM Test_Results');
         const [[{ total_violations }]] = await pool.query('SELECT COUNT(*) AS total_violations FROM Test_Violations');
+
+        // Two kinds of test coexist: legacy fixed papers (Tests/Test_Results) and
+        // randomised mock exams (Mock_Exams/Exam_Attempts). Every figure below
+        // covers both so the console never under-reports activity.
+        const [[{ total_tests }]] = await pool.query(
+            `SELECT (SELECT COUNT(*) FROM Tests)
+                  + (SELECT COUNT(*) FROM Mock_Exams WHERE is_active = 1) AS total_tests`
+        );
+
+        const [[scoreStats]] = await pool.query(`
+            SELECT COUNT(*) AS total_attempts,
+                   ROUND(AVG(score), 2) AS avg_score,
+                   MAX(score) AS max_score,
+                   MIN(score) AS min_score
+            FROM (
+                SELECT score FROM Test_Results
+                UNION ALL
+                SELECT score FROM Exam_Attempts WHERE status = 'submitted'
+            ) AS all_scores
+        `);
+        const { total_attempts, avg_score, max_score, min_score } = scoreStats;
 
         // Attempts per test for chart data
         const [attemptsPerTest] = await pool.query(`
@@ -20,17 +36,37 @@ exports.getOverview = async (req, res) => {
             FROM Tests t
             LEFT JOIN Test_Results r ON t.id = r.test_id
             GROUP BY t.id, t.title
-            ORDER BY t.id
+
+            UNION ALL
+
+            SELECT e.title, COUNT(a.id) AS attempt_count, ROUND(AVG(a.score), 2) AS avg_score
+            FROM Mock_Exams e
+            LEFT JOIN Exam_Attempts a ON a.exam_id = e.id AND a.status = 'submitted'
+            WHERE e.is_active = 1
+            GROUP BY e.id, e.title
+
+            ORDER BY attempt_count DESC
         `);
 
-        // Recent 10 attempts
+        // Recent 10 attempts across both kinds
         const [recentAttempts] = await pool.query(`
-            SELECT r.id, s.name AS student_name, s.roll_number, t.title AS test_title,
-                   r.score, r.created_at
-            FROM Test_Results r
-            JOIN Students s ON r.student_id = s.id
-            JOIN Tests t ON r.test_id = t.id
-            ORDER BY r.created_at DESC
+            SELECT * FROM (
+                SELECT r.id, 'legacy' AS kind, s.name AS student_name, s.roll_number,
+                       t.title AS test_title, r.score, r.created_at
+                FROM Test_Results r
+                JOIN Students s ON r.student_id = s.id
+                JOIN Tests t ON r.test_id = t.id
+
+                UNION ALL
+
+                SELECT a.id, 'mock' AS kind, s.name AS student_name, s.roll_number,
+                       e.title AS test_title, a.score, a.submitted_at AS created_at
+                FROM Exam_Attempts a
+                JOIN Students s ON a.student_id = s.id
+                JOIN Mock_Exams e ON a.exam_id = e.id
+                WHERE a.status = 'submitted'
+            ) AS recent
+            ORDER BY created_at DESC
             LIMIT 10
         `);
 
@@ -147,7 +183,8 @@ exports.getTests = async (req, res) => {
         const pool = await getPool;
 
         const [tests] = await pool.query(`
-            SELECT t.id, t.title, t.duration_minutes, t.total_questions, t.created_at,
+            SELECT t.id, 'legacy' AS kind, t.title, t.duration_minutes, t.total_questions,
+                   t.created_at,
                    COUNT(DISTINCT r.student_id) AS unique_students,
                    COUNT(r.id) AS attempt_count,
                    ROUND(AVG(r.score), 2) AS avg_score,
@@ -157,7 +194,26 @@ exports.getTests = async (req, res) => {
             FROM Tests t
             LEFT JOIN Test_Results r ON t.id = r.test_id
             GROUP BY t.id
-            ORDER BY t.created_at DESC
+
+            UNION ALL
+
+            -- A mock exam's "question count" is its bank size, not a fixed paper:
+            -- that is the pool each attempt's 50 questions are drawn from.
+            SELECT e.id, 'mock' AS kind, e.title, e.duration_minutes, e.total_questions,
+                   e.created_at,
+                   COUNT(DISTINCT a.student_id) AS unique_students,
+                   COUNT(a.id) AS attempt_count,
+                   ROUND(AVG(a.score), 2) AS avg_score,
+                   MAX(a.score) AS max_score,
+                   MIN(a.score) AS min_score,
+                   (SELECT COUNT(*) FROM Question_Bank qb
+                     WHERE qb.department = e.department AND qb.is_active = 1) AS question_count
+            FROM Mock_Exams e
+            LEFT JOIN Exam_Attempts a ON a.exam_id = e.id AND a.status = 'submitted'
+            WHERE e.is_active = 1
+            GROUP BY e.id
+
+            ORDER BY created_at DESC
         `);
 
         res.json({ tests });
@@ -175,30 +231,78 @@ exports.getAttempts = async (req, res) => {
         const { test_id, student_id, page = 1, limit = 20 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        let where = 'WHERE 1=1';
-        const params = [];
+        // `test_id` from the filter dropdown is prefixed to say which kind it is
+        // ("mock:3" / "legacy:2"), so one filter can drive both halves of the union.
+        const filter = String(test_id || '');
+        const filterKind = filter.includes(':') ? filter.split(':')[0] : null;
+        const filterId = filter.includes(':') ? filter.split(':')[1] : filter;
 
-        if (test_id) { where += ' AND r.test_id = ?'; params.push(test_id); }
-        if (student_id) { where += ' AND r.student_id = ?'; params.push(student_id); }
+        const legacyWhere = ['1=1'];
+        const legacyParams = [];
+        const mockWhere = ["a.status = 'submitted'"];
+        const mockParams = [];
 
-        const [[{ total }]] = await pool.query(
-            `SELECT COUNT(*) AS total FROM Test_Results r ${where}`,
-            params
-        );
+        if (filter) {
+            // A filter naming one kind blanks the other half of the union.
+            if (filterKind === 'mock') {
+                legacyWhere.push('1=0');
+                mockWhere.push('a.exam_id = ?');
+                mockParams.push(filterId);
+            } else if (filterKind === 'legacy') {
+                mockWhere.push('1=0');
+                legacyWhere.push('r.test_id = ?');
+                legacyParams.push(filterId);
+            } else {
+                // Unprefixed id (older UI) — match either side.
+                legacyWhere.push('r.test_id = ?');
+                legacyParams.push(filterId);
+                mockWhere.push('a.exam_id = ?');
+                mockParams.push(filterId);
+            }
+        }
+        if (student_id) {
+            legacyWhere.push('r.student_id = ?');
+            legacyParams.push(student_id);
+            mockWhere.push('a.student_id = ?');
+            mockParams.push(student_id);
+        }
 
-        const [attempts] = await pool.query(`
-            SELECT r.id, s.name AS student_name, s.roll_number, s.branch,
-                   t.title AS test_title, r.score, r.time_taken_seconds, r.created_at,
-                   t.total_questions,
+        const unionSql = `
+            SELECT r.id, 'legacy' AS kind, s.name AS student_name, s.roll_number, s.branch,
+                   t.title AS test_title, r.score,
+                   t.total_questions * 4 AS max_score,
+                   r.time_taken_seconds, r.created_at,
                    CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END AS has_violation
             FROM Test_Results r
             JOIN Students s ON r.student_id = s.id
             JOIN Tests t ON r.test_id = t.id
             LEFT JOIN Test_Violations v ON v.result_id = r.id
-            ${where}
-            ORDER BY r.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [...params, parseInt(limit), offset]);
+            WHERE ${legacyWhere.join(' AND ')}
+
+            UNION ALL
+
+            SELECT a.id, 'mock' AS kind, s.name AS student_name, s.roll_number, s.branch,
+                   e.title AS test_title, a.score,
+                   a.max_score,
+                   a.time_taken_seconds, a.submitted_at AS created_at,
+                   CASE WHEN a.violation_count > 0 THEN 1 ELSE 0 END AS has_violation
+            FROM Exam_Attempts a
+            JOIN Students s ON a.student_id = s.id
+            JOIN Mock_Exams e ON a.exam_id = e.id
+            WHERE ${mockWhere.join(' AND ')}
+        `;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) AS total FROM (${unionSql}) AS all_attempts`,
+            [...legacyParams, ...mockParams]
+        );
+
+        const [attempts] = await pool.query(
+            `SELECT * FROM (${unionSql}) AS all_attempts
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?`,
+            [...legacyParams, ...mockParams, parseInt(limit), offset]
+        );
 
         res.json({ total, attempts });
     } catch (error) {
@@ -211,6 +315,11 @@ exports.getAttemptDetail = async (req, res) => {
     try {
         const pool = await getPool;
         const resultId = req.params.resultId;
+
+        // Mock attempts live in a different pair of tables; same response shape.
+        if (req.query.kind === 'mock') {
+            return getMockAttemptDetail(pool, resultId, res);
+        }
 
         const [results] = await pool.query(`
             SELECT r.*, s.name AS student_name, s.roll_number, s.email, t.title AS test_title
@@ -262,6 +371,56 @@ exports.getAttemptDetail = async (req, res) => {
     }
 };
 
+
+/**
+ * Admin view of one mock attempt. Returns the same { result, questions } shape as
+ * the legacy detail above so the console renders both through one code path.
+ * Questions here are images, so `question_text` carries a readable label instead.
+ */
+async function getMockAttemptDetail(pool, attemptId, res) {
+    const [[result]] = await pool.query(`
+        SELECT a.id, a.student_id, a.exam_id, a.score, a.max_score, a.total_questions,
+               a.total_correct, a.total_wrong, a.total_answered, a.time_taken_seconds,
+               a.violation_count, a.auto_submitted, a.submitted_at AS created_at,
+               s.name AS student_name, s.roll_number, s.email, e.title AS test_title
+        FROM Exam_Attempts a
+        JOIN Students s ON a.student_id = s.id
+        JOIN Mock_Exams e ON a.exam_id = e.id
+        WHERE a.id = ? AND a.status = 'submitted'
+    `, [attemptId]);
+
+    if (!result) return res.status(404).json({ message: 'Attempt not found' });
+
+    const [rows] = await pool.query(`
+        SELECT aq.position, aq.section_name, aq.submitted_answer, aq.is_correct, aq.marks_awarded,
+               qb.id, qb.image_url, qb.image_filename, qb.question_type, qb.correct_answer,
+               qb.marks, qb.negative_marks, qb.year, qb.section AS source_section
+        FROM Attempt_Questions aq
+        JOIN Question_Bank qb ON qb.id = aq.question_id
+        WHERE aq.attempt_id = ?
+        ORDER BY aq.section_order, aq.position
+    `, [attemptId]);
+
+    const questions = rows.map(q => ({
+        id: q.id,
+        // No question text exists for these — the question is the PNG. The source
+        // filename is the most useful thing an admin can look a question up by.
+        question_text: `${q.image_filename}${q.year ? ` (${q.year})` : ''}`,
+        image_url: q.image_url,
+        options: null,
+        correct_answer: q.correct_answer,
+        question_type: q.question_type,
+        marks: parseFloat(q.marks),
+        negative_marks: parseFloat(q.negative_marks),
+        section_name: q.section_name,
+        student_answer: q.submitted_answer,
+        is_correct: q.submitted_answer === null ? null : Boolean(q.is_correct),
+        is_skipped: q.submitted_answer === null
+    }));
+
+    res.json({ result, answers: {}, questions });
+}
+
 // ─── Warnings ─────────────────────────────────────────────────────────────────
 
 exports.getWarnings = async (req, res) => {
@@ -284,13 +443,19 @@ exports.getWarnings = async (req, res) => {
             params
         );
 
+        // A mock-exam violation has no row in Tests (it points at an attempt
+        // instead), so both joins have to be outer or those rows vanish from the
+        // list while still being counted in the totals above.
         const [violations] = await pool.query(`
             SELECT v.id, s.name AS student_name, s.roll_number, s.email, s.branch,
-                   t.title AS test_title, v.violation_type, v.violation_count,
+                   COALESCE(t.title, e.title, 'Unknown test') AS test_title,
+                   v.violation_type, v.violation_count,
                    v.auto_submitted, v.created_at
             FROM Test_Violations v
             JOIN Students s ON v.student_id = s.id
-            JOIN Tests t ON v.test_id = t.id
+            LEFT JOIN Tests t ON v.test_id = t.id
+            LEFT JOIN Exam_Attempts a ON v.attempt_id = a.id
+            LEFT JOIN Mock_Exams e ON a.exam_id = e.id
             ${where}
             ORDER BY v.created_at DESC
             LIMIT ? OFFSET ?
@@ -460,7 +625,14 @@ exports.exportCSV = async (req, res) => {
 exports.getTestsList = async (req, res) => {
     try {
         const pool = await getPool;
-        const [tests] = await pool.query('SELECT id, title FROM Tests ORDER BY title');
+        // Values are prefixed with the kind so getAttempts/getWarnings can tell a
+        // legacy test id from a mock exam id (they're separate id spaces).
+        const [tests] = await pool.query(`
+            SELECT CONCAT('legacy:', id) AS id, title FROM Tests
+            UNION ALL
+            SELECT CONCAT('mock:', id) AS id, title FROM Mock_Exams WHERE is_active = 1
+            ORDER BY title
+        `);
         res.json({ tests });
     } catch (error) {
         console.error('Admin Tests List Error:', error);

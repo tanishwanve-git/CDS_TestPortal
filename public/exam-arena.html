@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Arena | CDS Test Portal</title>
+    <title>Mock Exam | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/arena.css">
 </head>
@@ -13,29 +13,28 @@
 
     <!-- Fullscreen entry overlay (shown if fullscreen exits on navigation) -->
     <div class="fs-entry-overlay" id="fsEntryOverlay" title="Click to enter fullscreen">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
             stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+            </path>
         </svg>
-        <h2>Fullscreen Required</h2>
-        <p>Click anywhere to enter fullscreen and begin your test</p>
+        <h2>Click anywhere to enter fullscreen</h2>
+        <p>Your exam will begin once fullscreen mode is active.</p>
     </div>
 
-    <!-- ⚠️ Violation warning modal -->
+    <!-- Proctoring violation warning -->
     <div class="violation-overlay" id="violationOverlay">
         <div class="violation-box">
             <div class="violation-icon">⚠️</div>
-            <h3>Warning — 1 of 1</h3>
+            <h3>Warning: Exam Rules Violated</h3>
             <p id="violationMsg">You switched tabs or exited fullscreen.<br>
-                <strong>This is your only warning.</strong><br>
-                Doing it again will automatically submit your test.
-            </p>
-            <button onclick="dismissWarning()">I Understand — Resume Test</button>
+                Doing this again will submit your exam automatically.</p>
+            <button type="button" onclick="dismissWarning()">I understand</button>
         </div>
     </div>
 
     <header>
-        <div class="test-title" id="testTitle">Loading Test...</div>
+        <div class="test-title" id="testTitle">Loading Mock Exam…</div>
         <div class="timer-badge safe" id="timerBadge">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -50,23 +49,29 @@
 
         <!-- Left: Question Area -->
         <main class="question-section">
+
+            <!-- One tab per section; the whole paper is navigable at any time -->
+            <div class="section-tabs" id="sectionTabs"></div>
+
             <div class="q-header">
-                <span class="q-number">Question <span id="currentQNum">1</span></span>
-                <span class="q-marks">+4 marks, -1 negative</span>
+                <span class="q-number">Question <span id="currentQNum">1</span> <span id="qOfTotal"
+                        style="color:#A1A1AA;font-weight:400;"></span></span>
+                <span class="q-marks" id="qMarks">+4 marks, -1 negative</span>
             </div>
 
             <div class="q-text" id="qText">
-                Loading question data...
+                <div class="q-loading">Loading question…</div>
             </div>
 
             <ul class="options-list" id="optionsList">
-                <!-- Options populated dynamically -->
+                <!-- Options / numeric input populated dynamically -->
             </ul>
 
             <div class="q-actions">
                 <button type="button" class="btn btn-outline" id="prevBtn">Previous</button>
                 <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-primary" id="nextBtn">Save & Next</button>
+                    <button type="button" class="btn btn-outline" id="clearBtn">Clear Response</button>
+                    <button type="button" class="btn btn-primary" id="nextBtn">Save &amp; Next</button>
                 </div>
             </div>
         </main>
@@ -74,27 +79,25 @@
         <!-- Right: Palette Area -->
         <aside class="palette-section">
             <div class="palette-header">Question Palette</div>
-            <div class="palette-grid" id="paletteGrid">
-                <!-- Palette buttons populated dynamically -->
+            <div id="paletteBody">
+                <!-- Section-grouped palette populated dynamically -->
             </div>
 
-            <!-- Contextual submit buttons below the palette grid -->
-            <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 10px;">
-                <!-- Shown on non-last sections -->
-                <button type="button" class="btn btn-section-submit" id="submitSectionBtn"
-                    style="width: 100%; padding: 0.75rem; border: 1px solid #C4D1EC; color: #C4D1EC;
-                           background: transparent; border-radius: 6px; font-weight: 600;
-                           cursor: pointer; font-family: inherit; transition: 0.2s;"
-                    >⚑ Save &amp; Submit Section</button>
-                <!-- Shown on last section -->
-                <button type="button" class="btn btn-submit" style="width: 100%;"
-                    id="submitTestBtn">Submit Final Test</button>
+            <div style="margin-top: 1rem;">
+                <button type="button" class="btn btn-submit" style="width: 100%;" id="submitTestBtn">
+                    Submit Final Test
+                </button>
+                <div class="autosave-note" id="autosaveNote"></div>
             </div>
 
             <div class="legend">
                 <div class="legend-item">
                     <div class="legend-box legend-answered"></div>
-                    <span>Answered & Saved</span>
+                    <span>Answered &amp; Saved</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box legend-visited"></div>
+                    <span>Seen, Not Answered</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-box legend-current"></div>
@@ -109,11 +112,16 @@
 
     </div>
 
-    <!-- Custom Submit Confirmation Modal -->
+    <!-- Full-size question image -->
+    <div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="Question, full size">
+    </div>
+
+    <!-- Confirm submit -->
     <div class="modal-overlay" id="submitModal">
         <div class="modal-box">
-            <h3>Submit Test?</h3>
-            <p>Once submitted, you cannot change your answers. Are you sure you want to submit?</p>
+            <h3 id="submitModalTitle">Submit Test?</h3>
+            <p id="submitModalBody">Once submitted you cannot change your answers.</p>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="cancelSubmitBtn">Cancel</button>
                 <button type="button" class="btn btn-submit" id="confirmSubmitBtn">Yes, Submit</button>
@@ -121,21 +129,20 @@
         </div>
     </div>
 
-    <!-- Custom Result Modal (shown after successful submission) -->
+    <!-- Result -->
     <div class="modal-overlay" id="resultModal">
         <div class="modal-box">
-            <h3>Test Submitted Successfully!</h3>
+            <h3>Test Submitted</h3>
             <h1 id="scoreDisplay" style="color: var(--primary); margin: 1rem 0; font-size: 2.5rem;">0 / 0</h1>
-            <p>Your results have been saved.</p>
+            <div class="attempt-summary" id="resultSummary"></div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-primary" onclick="window.location.href=BASE_PATH+'/dashboard.html'"
-                    style="width: 100%;">Return to Dashboard</button>
+                <button type="button" class="btn btn-outline" id="backToDashboardBtn">Back to Dashboard</button>
+                <button type="button" class="btn btn-primary" id="reviewAttemptBtn">Review Answers</button>
             </div>
         </div>
     </div>
 
-    <!-- Test Logic -->
-    <script src="js/test-arena.js"></script>
+    <script src="js/exam-arena.js"></script>
 </body>
 
 </html>

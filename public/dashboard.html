@@ -43,7 +43,7 @@
                     <span id="testsTaken" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <h4>Tests Remaining</h4>
+                    <h4>Mock Exams</h4>
                     <span id="testsRemaining" class="stat-value">0</span>
                 </div>
             </div>
@@ -52,9 +52,18 @@
         <main class="main-content">
 
             <section class="upcoming-tests">
-                <h2>Available Mock Tests</h2>
-                <div class="test-grid" id="availableTestsGrid">
+                <h2>Mock Exams</h2>
+                <p class="section-hint">Each attempt draws a brand-new set of questions at random from the
+                    department's question bank &mdash; take the same exam as many times as you like.</p>
+                <div class="test-grid" id="mockExamsGrid">
                     <!-- Cards dynamically populated by dashboard.js -->
+                </div>
+            </section>
+
+            <section class="upcoming-tests" id="legacyTestsSection" style="display:none;">
+                <h2>Other Tests</h2>
+                <div class="test-grid" id="availableTestsGrid">
+                    <!-- Legacy fixed-paper tests, if any remain -->
                 </div>
             </section>
 
@@ -67,6 +76,7 @@
                                 <th>Test Name</th>
                                 <th>Date Taken</th>
                                 <th>Score</th>
+                                <th>Accuracy</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -98,6 +108,10 @@
                         <span class="value" id="modalDuration">0 mins</span>
                     </div>
                     <div class="detail-item">
+                        <span class="label">Sections</span>
+                        <span class="value" id="modalSections">1</span>
+                    </div>
+                    <div class="detail-item">
                         <span class="label">Marking</span>
                         <span class="value">+4 / -1</span>
                     </div>
@@ -118,6 +132,10 @@
                         </li>
                         <li><strong>Auto-Submit:</strong> The test will be automatically submitted when the timer
                             reaches zero.</li>
+                        <li><strong>One Timer:</strong> A single clock runs for the whole paper. You may move freely
+                            between sections and questions until you submit.</li>
+                        <li><strong>Fresh Paper Every Time:</strong> Your questions are drawn at random when you press
+                            start, so a re-attempt will not repeat this paper.</li>
                     </ul>
                 </div>
 

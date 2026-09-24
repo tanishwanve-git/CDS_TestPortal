@@ -130,12 +130,100 @@ async function initTables(pool) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (student_id) REFERENCES Students(id) ON DELETE CASCADE,
             FOREIGN KEY (test_id) REFERENCES Tests(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS Question_Bank (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            department VARCHAR(20) NOT NULL,
+            section VARCHAR(100) NOT NULL,
+            source_subject VARCHAR(20) NOT NULL,
+            year VARCHAR(16) NULL,
+            source_question_no INT NULL,
+            question_type VARCHAR(10) NOT NULL,
+            correct_answer VARCHAR(255) NOT NULL,
+            answer_min DECIMAL(18,6) NULL,
+            answer_max DECIMAL(18,6) NULL,
+            marks DECIMAL(5,2) NOT NULL DEFAULT 4,
+            negative_marks DECIMAL(5,2) NOT NULL DEFAULT 1,
+            image_filename VARCHAR(255) NOT NULL,
+            relative_path VARCHAR(255) NOT NULL,
+            image_url VARCHAR(512) NOT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_relative_path (relative_path),
+            KEY idx_pool (department, section, is_active)
+        )`,
+        `CREATE TABLE IF NOT EXISTS Mock_Exams (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            code VARCHAR(20) NOT NULL,
+            department VARCHAR(20) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            duration_minutes INT NOT NULL DEFAULT 90,
+            total_questions INT NOT NULL DEFAULT 50,
+            disciplines VARCHAR(255) NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_code (code)
+        )`,
+        `CREATE TABLE IF NOT EXISTS Mock_Exam_Sections (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            exam_id INT NOT NULL,
+            section_name VARCHAR(150) NOT NULL,
+            source_sections TEXT NULL,
+            question_count INT NOT NULL,
+            sort_order INT NOT NULL DEFAULT 0,
+            FOREIGN KEY (exam_id) REFERENCES Mock_Exams(id) ON DELETE CASCADE
+        )`,
+        `CREATE TABLE IF NOT EXISTS Exam_Attempts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            student_id INT NOT NULL,
+            exam_id INT NOT NULL,
+            status ENUM('in_progress','submitted') NOT NULL DEFAULT 'in_progress',
+            total_questions INT NOT NULL DEFAULT 0,
+            max_score DECIMAL(8,2) NOT NULL DEFAULT 0,
+            score DECIMAL(8,2) NULL,
+            total_answered INT NULL,
+            total_correct INT NULL,
+            total_wrong INT NULL,
+            time_taken_seconds INT NULL,
+            violation_count INT NOT NULL DEFAULT 0,
+            auto_submitted TINYINT(1) NOT NULL DEFAULT 0,
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            submitted_at DATETIME NULL,
+            FOREIGN KEY (student_id) REFERENCES Students(id) ON DELETE CASCADE,
+            FOREIGN KEY (exam_id) REFERENCES Mock_Exams(id) ON DELETE CASCADE,
+            KEY idx_student (student_id, status)
+        )`,
+        `CREATE TABLE IF NOT EXISTS Attempt_Questions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            attempt_id INT NOT NULL,
+            question_id INT NOT NULL,
+            section_name VARCHAR(150) NOT NULL,
+            section_order INT NOT NULL DEFAULT 0,
+            position INT NOT NULL,
+            submitted_answer VARCHAR(255) NULL,
+            is_correct TINYINT(1) NULL,
+            marks_awarded DECIMAL(6,2) NULL,
+            FOREIGN KEY (attempt_id) REFERENCES Exam_Attempts(id) ON DELETE CASCADE,
+            FOREIGN KEY (question_id) REFERENCES Question_Bank(id) ON DELETE CASCADE,
+            UNIQUE KEY uq_attempt_position (attempt_id, position),
+            KEY idx_attempt (attempt_id)
         )`
     ];
 
     for (let query of tableQueries) {
         await pool.query(query);
     }
+
+    // Mock-exam attempts have no row in Tests, so the proctoring log has to accept
+    // a NULL test_id and point at the attempt instead. Both statements are
+    // no-ops once applied.
+    try {
+        await pool.query('ALTER TABLE Test_Violations MODIFY COLUMN test_id INT NULL;');
+    } catch (e) { /* already nullable */ }
+    try {
+        await pool.query('ALTER TABLE Test_Violations ADD COLUMN attempt_id INT NULL;');
+    } catch (e) { /* column already exists */ }
 
     // Ensure programme & discipline exist on Students table if used
     try {
@@ -144,7 +232,7 @@ async function initTables(pool) {
         // Ignored if columns already exist
     }
 
-    console.log('✅ Base Database Tables & allowed_students Initialized');
+    console.log('✅ Database tables (portal + question bank + mock attempts) initialized');
 }
 
 module.exports = createPool();

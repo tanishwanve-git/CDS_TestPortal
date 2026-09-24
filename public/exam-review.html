@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attempt Review | CDS Test Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #C4D1EC;
+            --border: #2E2E32;
+            --success: #22C55E;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --muted: #A1A1AA;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            background: #121214;
+            color: #FFFFFF;
+        }
+
+        .review-header {
+            background: #161618;
+            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .review-header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 0.6rem 1.25rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: #FFFFFF;
+            transition: 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #27272A;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #121214;
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: #D4E0F7;
+        }
+
+        .review-body {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* ── Score summary ─────────────────────────────────────────────── */
+        .score-hero {
+            background: #18181B;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .score-hero .big {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1.1;
+        }
+
+        .score-hero .sub {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-tile {
+            background: #18181B;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-tile .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .stat-tile .label {
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.35rem;
+        }
+
+        .value-correct {
+            color: var(--success);
+        }
+
+        .value-wrong {
+            color: var(--danger);
+        }
+
+        .value-skipped {
+            color: var(--warning);
+        }
+
+        /* ── Section breakdown ─────────────────────────────────────────── */
+        h2 {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            margin: 2rem 0 1rem;
+        }
+
+        .section-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #18181B;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .section-table th,
+        .section-table td {
+            padding: 0.85rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .section-table th {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .section-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ── Filter chips ──────────────────────────────────────────────── */
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem;
+        }
+
+        .chip {
+            background: #18181B;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 0.45rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #121214;
+        }
+
+        /* ── Question cards ────────────────────────────────────────────── */
+        .q-card {
+            background: #18181B;
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .q-card.correct {
+            border-left-color: var(--success);
+        }
+
+        .q-card.wrong {
+            border-left-color: var(--danger);
+        }
+
+        .q-card.skipped {
+            border-left-color: var(--warning);
+        }
+
+        .q-card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .q-num {
+            font-weight: 700;
+        }
+
+        .q-meta {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-correct {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .badge-wrong {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .badge-skipped {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+
+        .q-image {
+            display: block;
+            width: 100%;
+            background: #FFFFFF;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: zoom-in;
+        }
+
+        .answer-row {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            margin-top: 1.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .answer-row .label {
+            color: var(--muted);
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .answer-row .val {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .image-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: rgba(0, 0, 0, 0.92);
+            overflow: auto;
+            cursor: zoom-out;
+            padding: 2rem;
+        }
+
+        .image-lightbox.show {
+            display: block;
+        }
+
+        .image-lightbox img {
+            display: block;
+            margin: 0 auto;
+            background: #FFFFFF;
+            border-radius: 6px;
+            padding: 16px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .msg {
+            color: var(--muted);
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .review-body {
+                padding: 1.25rem 1rem 3rem;
+            }
+
+            .score-hero .big {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="review-header">
+        <h1 id="reviewTitle">Attempt Review</h1>
+        <div style="display:flex;gap:10px;">
+            <button class="btn" id="retakeBtn" style="display:none;">Take Again</button>
+            <button class="btn btn-primary" id="backBtn">Back to Dashboard</button>
+        </div>
+    </div>
+
+    <div class="review-body" id="reviewBody">
+        <div class="msg" id="loadingMsg">Loading your attempt…</div>
+    </div>
+
+    <div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="Question, full size">
+    </div>
+
+    <script>
+        // Requires a trailing slash so a page named /mock*.html can never be
+        // mistaken for a /mock subpath deployment.
+        const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)\//);
+        const BASE_PATH = subpathMatch ? subpathMatch[1] : '';
+        const API_BASE = `${BASE_PATH}/api`;
+
+        const token = localStorage.getItem('token');
+        const attemptId = localStorage.getItem('reviewAttemptId');
+
+        let allQuestions = [];
+        let activeFilter = 'all';
+        let examId = null;
+
+        document.getElementById('backBtn').onclick = () => {
+            window.location.href = `${BASE_PATH}/dashboard.html`;
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!token || !attemptId) {
+                window.location.href = `${BASE_PATH}/dashboard.html`;
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/tests/mock/attempt/${attemptId}/review`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || 'Could not load this attempt');
+                }
+
+                const { attempt, questions, stats } = await res.json();
+                allQuestions = questions;
+                examId = attempt.exam_id;
+
+                document.getElementById('reviewTitle').innerText = attempt.title;
+                render(attempt, stats);
+
+                // Re-attempting draws a completely different paper, so offer it here.
+                const retakeBtn = document.getElementById('retakeBtn');
+                retakeBtn.style.display = 'inline-block';
+                retakeBtn.onclick = startRetake;
+
+            } catch (err) {
+                document.getElementById('loadingMsg').innerText = 'Failed to load review. ' + err.message;
+            }
+        });
+
+        function render(attempt, stats) {
+            const pct = attempt.max_score > 0
+                ? Math.round((attempt.score / attempt.max_score) * 100)
+                : 0;
+            const minutes = Math.floor((attempt.time_taken_seconds || 0) / 60);
+            const seconds = (attempt.time_taken_seconds || 0) % 60;
+
+            const sectionRows = stats.sectionScores.map(s => `
+                <tr>
+                    <td>${escapeHtml(s.name)}</td>
+                    <td>${fmt(s.score)} / ${fmt(s.maxScore)}</td>
+                    <td style="color:var(--success);">${s.correct}</td>
+                    <td style="color:var(--danger);">${s.wrong}</td>
+                    <td style="color:var(--warning);">${s.skipped}</td>
+                </tr>`).join('');
+
+            document.getElementById('reviewBody').innerHTML = `
+                <div class="score-hero">
+                    <div class="big">${fmt(attempt.score)} <span style="font-size:1.5rem;color:var(--muted);">/ ${fmt(attempt.max_score)}</span></div>
+                    <div class="sub">
+                        ${pct}% &nbsp;·&nbsp; finished in ${minutes}m ${seconds}s
+                        &nbsp;·&nbsp; average across all ${stats.attemptsOnThisExam} attempt(s) of this exam:
+                        <strong style="color:#FFF;">${fmt(stats.averageScore)}</strong>
+                    </div>
+                </div>
+
+                <div class="stat-row">
+                    <div class="stat-tile"><div class="value value-correct">${stats.totalCorrect}</div><div class="label">Correct</div></div>
+                    <div class="stat-tile"><div class="value value-wrong">${stats.totalWrong}</div><div class="label">Incorrect</div></div>
+                    <div class="stat-tile"><div class="value value-skipped">${stats.totalSkipped}</div><div class="label">Unanswered</div></div>
+                    <div class="stat-tile"><div class="value">${attempt.total_questions}</div><div class="label">Total</div></div>
+                </div>
+
+                ${stats.sectionScores.length > 1 ? `
+                <h2>Section Breakdown</h2>
+                <table class="section-table">
+                    <thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Skipped</th></tr></thead>
+                    <tbody>${sectionRows}</tbody>
+                </table>` : ''}
+
+                <h2>Question by Question</h2>
+                <div class="filters">
+                    <button class="chip active" data-filter="all" onclick="setFilter('all')">All (${allQuestions.length})</button>
+                    <button class="chip" data-filter="wrong" onclick="setFilter('wrong')">Incorrect (${stats.totalWrong})</button>
+                    <button class="chip" data-filter="skipped" onclick="setFilter('skipped')">Unanswered (${stats.totalSkipped})</button>
+                    <button class="chip" data-filter="correct" onclick="setFilter('correct')">Correct (${stats.totalCorrect})</button>
+                </div>
+                <div id="questionList"></div>
+            `;
+
+            renderQuestions();
+        }
+
+        function setFilter(filter) {
+            activeFilter = filter;
+            document.querySelectorAll('.chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.filter === filter);
+            });
+            renderQuestions();
+        }
+
+        function renderQuestions() {
+            const list = document.getElementById('questionList');
+            const shown = allQuestions.filter(q =>
+                activeFilter === 'all' ||
+                (activeFilter === 'correct' && q.isCorrect) ||
+                (activeFilter === 'wrong' && q.isWrong) ||
+                (activeFilter === 'skipped' && q.isSkipped)
+            );
+
+            if (!shown.length) {
+                list.innerHTML = '<div class="msg">Nothing in this category.</div>';
+                return;
+            }
+
+            list.innerHTML = shown.map(q => {
+                const status = q.isCorrect ? 'correct' : (q.isWrong ? 'wrong' : 'skipped');
+                const label = q.isCorrect ? 'Correct' : (q.isWrong ? 'Incorrect' : 'Not Answered');
+                const src = q.image_url.startsWith('/') ? `${BASE_PATH}${q.image_url}` : q.image_url;
+
+                return `
+                <div class="q-card ${status}">
+                    <div class="q-card-head">
+                        <div>
+                            <span class="q-num">Question ${q.position}</span>
+                            <span class="q-meta">&nbsp;·&nbsp; ${escapeHtml(q.section_name)} · ${q.question_type}${q.source ? ' · ' + escapeHtml(q.source) : ''}</span>
+                        </div>
+                        <span class="badge badge-${status}">${label} &nbsp; ${q.marks_awarded > 0 ? '+' : ''}${fmt(q.marks_awarded)}</span>
+                    </div>
+                    <img class="q-image" src="${src}" alt="Question ${q.position}" onclick="openLightbox('${src}')">
+                    <div class="answer-row">
+                        <div>
+                            <span class="label">Your answer</span>
+                            <span class="val" style="color:${q.isCorrect ? 'var(--success)' : (q.isWrong ? 'var(--danger)' : 'var(--warning)')};">
+                                ${q.studentAnswer !== null ? escapeHtml(q.studentAnswer) : '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="label">Correct answer</span>
+                            <span class="val" style="color:var(--success);">${escapeHtml(q.correctAnswer)}</span>
+                        </div>
+                        <div>
+                            <span class="label">Marking</span>
+                            <span class="val">+${fmt(q.marks)} / ${q.negative_marks > 0 ? '-' + fmt(q.negative_marks) : '0'}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function startRetake() {
+            const btn = document.getElementById('retakeBtn');
+            btn.disabled = true;
+            btn.innerText = 'Preparing…';
+            try {
+                const res = await fetch(`${API_BASE}/tests/mock/${examId}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Could not start a new attempt');
+
+                localStorage.setItem('currentAttemptId', String(data.attemptId));
+                try {
+                    const el = document.documentElement;
+                    if (el.requestFullscreen) await el.requestFullscreen();
+                } catch { /* blocked — proceed anyway */ }
+                window.location.href = `${BASE_PATH}/exam-arena.html`;
+            } catch (err) {
+                alert(err.message);
+                btn.disabled = false;
+                btn.innerText = 'Take Again';
+            }
+        }
+
+        function openLightbox(src) {
+            document.getElementById('lightboxImg').src = src;
+            document.getElementById('imageLightbox').classList.add('show');
+        }
+
+        function closeLightbox() {
+            document.getElementById('imageLightbox').classList.remove('show');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeLightbox();
+        });
+
+        function fmt(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '—';
+            return Number.isInteger(n) ? String(n) : n.toFixed(2);
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+    </script>
+</body>
+
+</html>
