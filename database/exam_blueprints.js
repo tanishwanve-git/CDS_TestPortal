@@ -49,7 +49,7 @@ module.exports = {
         {
             code: 'CSE',
             metadata: 'CSE/metadata.csv',
-            title: 'GATE Computer Science & Engineering — Mock Test',
+            title: 'Computer Science & Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE CSE question bank. Every attempt gives you a new paper.',
             durationMinutes: 90,
             // Aliases let a student's `discipline` value from allowed_students
@@ -62,7 +62,7 @@ module.exports = {
         {
             code: 'ME',
             metadata: 'ME/metadata.csv',
-            title: 'GATE Mechanical Engineering — Mock Test',
+            title: 'Mechanical Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE ME question bank (2016-2025). Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['ME'],
@@ -73,7 +73,7 @@ module.exports = {
         {
             code: 'EE',
             metadata: 'GATE_ESE_Papers/EE/metadata.csv',
-            title: 'GATE / ESE Electrical Engineering — Mock Test',
+            title: 'Electrical Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE-EE and ESE-EE Prelims question bank. Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['EE'],
@@ -84,7 +84,7 @@ module.exports = {
         {
             code: 'EC',
             metadata: 'GATE_ESE_Papers/EC/metadata.csv',
-            title: 'GATE / ESE Electronics & Communication — Mock Test',
+            title: 'Electronics & Communication Mock Test',
             description: '50 randomly drawn questions from the GATE-EC and ESE-ECE Prelims question bank. Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['EC', 'ECE'],
@@ -95,7 +95,7 @@ module.exports = {
         {
             code: 'IN',
             metadata: 'GATE_ESE_Papers/IN/metadata.csv',
-            title: 'GATE Instrumentation Engineering — Mock Test',
+            title: 'Instrumentation Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE-IN question bank (2018-2026). Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['IN'],
@@ -106,7 +106,7 @@ module.exports = {
         {
             code: 'CH',
             metadata: 'CH/metadata.csv',
-            title: 'GATE Chemical Engineering — Mock Test',
+            title: 'Chemical Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE Chemical Engineering question bank (2015-2025). Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['CL', 'CH'],
@@ -117,7 +117,7 @@ module.exports = {
         {
             code: 'MT',
             metadata: 'MT/metadata.csv',
-            title: 'GATE Metallurgical Engineering — Mock Test',
+            title: 'Metallurgical Engineering Mock Test',
             description: '50 randomly drawn questions from the GATE Metallurgical Engineering question bank (2014-2026). Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['MT', 'MSE'],
@@ -128,7 +128,7 @@ module.exports = {
         {
             code: 'GS',
             metadata: 'GATE_ESE_Papers/GS/metadata.csv',
-            title: 'ESE General Studies & Engineering Aptitude — Mock Test',
+            title: 'General Studies & Engineering Aptitude Mock Test',
             description: '50 randomly drawn questions from the ESE Prelims General Studies question bank. Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: [],
@@ -139,7 +139,7 @@ module.exports = {
         {
             code: 'CE',
             metadata: 'CE/metadata.csv',
-            title: 'Civil Engineering (GATE + ESE) — Mock Test',
+            title: 'Civil Engineering Mock Test',
             description: '50 questions drawn at random across all eight Civil Engineering topics. Every attempt gives you a new paper.',
             durationMinutes: 90,
             disciplines: ['CE'],

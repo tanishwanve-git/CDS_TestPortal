@@ -401,14 +401,15 @@ body {
 .detail-meta-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1px;
-    background: var(--rule);
-    border: 1px solid var(--rule);
+    gap: 10px;
     margin-bottom: 18px;
 }
 
+/* Each cell carries its own rule. Drawing the grid with a coloured background
+   behind 1px gaps instead would tint the empty tail of the last row. */
 .detail-meta-item {
     background: var(--surface);
+    border: 1px solid var(--rule);
     padding: 10px 12px;
 }
 
@@ -627,4 +628,101 @@ body {
 
 @media (max-width: 600px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ══ Roster filter grid ═══════════════════════════════════════════════
+   The compliance view has a dozen filters; a wrapping flex row turns that
+   into an unreadable ribbon, so they sit on a labelled grid instead. */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.filter-field > span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+/* These live on a grid track, so they must fill it rather than size to 220px */
+.filter-grid .filter-input,
+.filter-grid .filter-select {
+    width: 100%;
+    font-size: 13px;
+    padding: 7px 10px;
+}
+
+.filter-grid .filter-select { padding-right: 30px; }
+
+.filter-actions {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.filter-actions .btn { flex: 1; }
+
+/* ══ Quick lists ══════════════════════════════════════════════════════ */
+.quick-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.quick-filters .eyebrow { margin-right: 2px; }
+
+/* ══ Coverage meter ═══════════════════════════════════════════════════ */
+.coverage-meter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 150px;
+}
+
+.coverage-meter .meter-track {
+    flex: 1;
+    height: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+}
+
+.coverage-meter .meter-fill {
+    height: 100%;
+    background: var(--accent);
+}
+
+/* A department nobody has sat yet is the thing to act on, so it reads red */
+.coverage-meter.is-zero .meter-fill { background: var(--alert); }
+
+.coverage-meter .meter-value {
+    min-width: 42px;
+    text-align: right;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ══ Per-exam breakdown inside the student drill-down ═════════════════ */
+.exam-stat-row-none td {
+    color: var(--ink-2);
+    background: var(--surface-2);
+}
+
+@media (max-width: 720px) {
+    .filter-grid { grid-template-columns: 1fr 1fr; }
+    .filter-actions { grid-column: 1 / -1; }
 }

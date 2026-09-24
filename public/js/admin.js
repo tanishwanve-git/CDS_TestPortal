@@ -172,10 +172,12 @@ function setupApp() {
         refreshCurrentSection();
     });
 
-    // Filter enter key
-    document.getElementById('studentSearch')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') loadStudents(1);
+    // Enter anywhere in the roster filters re-runs the query.
+    document.querySelectorAll('#section-students .filter-grid input').forEach(el => {
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') loadStudents(1); });
     });
+
+    loadFilterOptions();
 
     // Below 960px the sidebar is off-canvas, so the topbar carries its toggle.
     document.getElementById('sidebarToggle')?.addEventListener('click', () => {
@@ -190,7 +192,8 @@ function setupApp() {
 
 const sectionTitles = {
     overview:  ['Overview',  'Real-time portal analytics'],
-    students:  ['Students',  'Manage and filter registered students'],
+    students:  ['Students',  'Mock compliance across the whole roster'],
+    coverage:  ['Mock coverage', 'Who has sat each mock exam, and who has not'],
     tests:     ['Tests',     'Test-level statistics and details'],
     attempts:  ['Attempts',  'Per-student test attempt history'],
     warnings:  ['Warnings',  'Proctor violation monitoring'],
@@ -225,7 +228,8 @@ function navigateTo(sec) {
 function refreshCurrentSection() {
     switch (currentSection) {
         case 'overview':  fetchAndLoadOverview(); break;
-        case 'students':  loadStudents(pages.students); loadBranchDist(); break;
+        case 'students':  loadStudents(pages.students); break;
+        case 'coverage':  loadCoverage(); break;
         case 'tests':     loadTests(); break;
         case 'attempts':  loadAttempts(pages.attempts); break;
         case 'warnings':  loadWarnings(pages.warnings); break;
@@ -353,78 +357,191 @@ function buildBarChart(id, labels, data, label, color) {
 
 // ── Students ──────────────────────────────────────────────────────────────────
 
+// ── Roster compliance ─────────────────────────────────────────────────────────
+
+// Read once per call so the table, the pagination and the export links can
+// never drift apart.
+function rosterFilters() {
+    const val = id => (document.getElementById(id)?.value || '').trim();
+    const f = {
+        search: val('fSearch'),
+        exam_id: val('fExam'),
+        programme: val('fProgramme'),
+        discipline: val('fDiscipline'),
+        status: val('fStatus'),
+        target: val('fTarget'),
+        min_attempts: val('fMinAttempts'),
+        max_attempts: val('fMaxAttempts'),
+        min_pct: val('fMinPct'),
+        max_pct: val('fMaxPct'),
+        from: val('fFrom'),
+        to: val('fTo'),
+        sort: val('fSort')
+    };
+    const params = new URLSearchParams();
+    Object.entries(f).forEach(([k, v]) => { if (v !== '') params.append(k, v); });
+    return params;
+}
+
+function resetRosterFilters() {
+    ['fSearch', 'fExam', 'fProgramme', 'fDiscipline', 'fStatus',
+     'fMinAttempts', 'fMaxAttempts', 'fMinPct', 'fMaxPct', 'fFrom', 'fTo']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const t = document.getElementById('fTarget'); if (t) t.value = '3';
+    const s = document.getElementById('fSort'); if (s) s.value = 'attempts_asc';
+    loadStudents(1);
+}
+
+function quickFilter(status) {
+    const el = document.getElementById('fStatus');
+    if (el) el.value = status;
+    loadStudents(1);
+}
+
+async function loadFilterOptions() {
+    try {
+        const data = await apiFetch('/filter-options');
+        const fill = (id, rows, label) => {
+            const el = document.getElementById(id);
+            if (!el || el.options.length > 1) return;
+            rows.forEach(r => {
+                const value = r.value !== undefined ? r.value : r.id;
+                const text = r.value !== undefined
+                    ? `${r.value} (${r.count})`
+                    : r.title;
+                el.innerHTML += `<option value="${escHtml(String(value))}">${escHtml(text)}</option>`;
+            });
+        };
+        fill('fProgramme', data.programmes || []);
+        fill('fDiscipline', data.disciplines || []);
+        fill('fExam', data.exams || []);
+    } catch (e) { /* dropdowns stay at "All" */ }
+}
+
+const ROSTER_LIMIT = 25;
+
 async function loadStudents(page = 1) {
     pages.students = page;
-    const search = document.getElementById('studentSearch').value.trim();
-    const branch = document.getElementById('studentBranch').value;
-    const params = new URLSearchParams({ page, limit: 20 });
-    if (search) params.append('search', search);
-    if (branch) params.append('branch', branch);
+    const params = rosterFilters();
+    params.set('page', page);
+    params.set('limit', ROSTER_LIMIT);
 
     const tbody = document.getElementById('studentsTableBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner"><div class="spinner"></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
 
     try {
         const data = await apiFetch(`/students?${params}`);
+        const sum = data.summary || {};
 
-        // Populate branch filter
-        const branchSel = document.getElementById('studentBranch');
-        if (branchSel.options.length <= 1 && data.branchDist) {
-            data.branchDist.forEach(b => {
-                if (b.branch) branchSel.innerHTML += `<option value="${escHtml(b.branch)}">${escHtml(b.branch)}</option>`;
-            });
-        }
+        document.getElementById('rosterTotal').textContent = fmt(sum.roster, '0');
+        document.getElementById('rosterNeverIn').textContent = fmt(sum.never_logged_in, '0');
+        document.getElementById('rosterNoMocks').textContent = fmt(sum.not_attempted, '0');
+        document.getElementById('rosterMetTarget').textContent = fmt(sum.met_target, '0');
+        document.getElementById('rosterAvgPct').textContent =
+            sum.avg_best_pct === null || sum.avg_best_pct === undefined ? '—' : `${sum.avg_best_pct}%`;
 
         if (!data.students.length) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>No students found</h3><p>Try different filters.</p></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">
+                <h3>No students match</h3><p>Try widening the filters.</p></div></td></tr>`;
         } else {
-            tbody.innerHTML = data.students.map(s => `
+            tbody.innerHTML = data.students.map(s => {
+                // A roster member who has never signed in has no Students row, so
+                // the drill-down is keyed by email instead of id.
+                const key = s.student_id ? s.student_id : encodeURIComponent(s.email);
+                const signedIn = s.student_id
+                    ? '<span class="badge badge-neutral">Yes</span>'
+                    : '<span class="badge badge-danger">No</span>';
+                const mocks = Number(s.attempts) === 0
+                    ? '<span class="badge badge-danger">0</span>'
+                    : `<strong>${s.attempts}</strong>`;
+                return `
                 <tr>
                     <td>
                         <div class="name-cell">${escHtml(s.name)}</div>
                         <div class="sub-text">${escHtml(s.email)}</div>
                     </td>
                     <td>${fmt(s.roll_number)}</td>
-                    <td>${s.branch ? `<span class="badge badge-neutral">${escHtml(s.branch)}</span>` : '—'}</td>
-                    <td>${s.tests_attempted}</td>
-                    <td>${fmt(s.avg_score, '—')}</td>
-                    <td>${fmt(s.best_score, '—')}</td>
-                    <td>${fmtDate(s.created_at)}</td>
+                    <td>${fmt(s.programme)}</td>
+                    <td>${s.discipline ? `<span class="badge badge-neutral">${escHtml(s.discipline)}</span>` : '—'}</td>
+                    <td>${signedIn}</td>
+                    <td>${mocks}</td>
+                    <td>${fmt(s.exams_attempted, '0')}</td>
+                    <td>${s.best_pct === null ? '—' : s.best_pct + '%'}</td>
+                    <td>${s.avg_pct === null ? '—' : s.avg_pct + '%'}</td>
+                    <td>${s.last_attempt_at ? fmtDate(s.last_attempt_at) : '<span class="muted">Never</span>'}</td>
                     <td>
-                        <button type="button" class="btn btn-outline btn-sm" title="View details"
-                            onclick="openStudentDetail(${s.id})">View</button>
+                        <button type="button" class="btn btn-outline btn-sm"
+                            onclick="openStudentDetail('${key}')">View</button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
-        renderPagination('studentsPagination', data.total, 20, page, loadStudents);
-        loadBranchDist(data.branchDist);
+        renderPagination('studentsPagination', data.total, ROSTER_LIMIT, page, loadStudents);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
-function loadBranchDist(dist) {
-    if (!dist) return;
-    const total = dist.reduce((s, b) => s + b.count, 0);
-    const container = document.getElementById('branchDistContainer');
-    if (!dist.length) {
-        container.innerHTML = '<p class="muted">No data available.</p>';
-        return;
+// ── Coverage by exam ──────────────────────────────────────────────────────────
+
+async function loadCoverage() {
+    const tbody = document.getElementById('coverageTableBody');
+    tbody.innerHTML = `<tr><td colspan="9" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
+    try {
+        const data = await apiFetch('/exam-coverage');
+        if (!data.exams.length) {
+            tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+                <h3>No published mock exams</h3></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.exams.map(e => {
+            const eligible = Number(e.eligible) || 0;
+            const done = Number(e.students_attempted) || 0;
+            const pct = eligible ? Math.round((done / eligible) * 1000) / 10 : 0;
+            return `
+            <tr>
+                <td>
+                    <div class="name-cell">${escHtml(e.title)}</div>
+                    <div class="sub-text">${escHtml(e.code || '')} · ${e.total_questions} Q · ${e.duration_minutes} min</div>
+                </td>
+                <td>${eligible}</td>
+                <td>${done}</td>
+                <td>${Math.max(0, eligible - done)}</td>
+                <td>
+                    <div class="coverage-meter${done === 0 ? ' is-zero' : ''}">
+                        <div class="meter-track"><div class="meter-fill" style="width:${pct}%"></div></div>
+                        <span class="meter-value">${pct}%</span>
+                    </div>
+                </td>
+                <td>${e.attempts}</td>
+                <td>${e.avg_pct === null ? '—' : e.avg_pct + '%'}</td>
+                <td>${e.last_attempt_at ? fmtDate(e.last_attempt_at) : '<span class="muted">Never</span>'}</td>
+                <td>
+                    <button type="button" class="btn btn-outline btn-sm"
+                        onclick="drillIntoExam(${e.id})">Who is missing</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
-    container.innerHTML = dist.map(b => `
-        <div class="branch-bar">
-            <span class="branch-name">${escHtml(b.branch || 'Unknown')}</span>
-            <div class="bar-track">
-                <div class="bar-fill" style="width:${Math.round((b.count / total) * 100)}%"></div>
-            </div>
-            <span class="bar-count">${b.count}</span>
-        </div>
-    `).join('');
 }
 
-async function openStudentDetail(studentId) {
+// Jump from a coverage row straight to the students who have not sat that exam.
+function drillIntoExam(examId) {
+    // Set the filters before navigating: navigateTo() refreshes the section it
+    // lands on, so doing it the other way round fires a throwaway query first.
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('fExam', String(examId));
+    set('fStatus', 'not_attempted');
+    pages.students = 1;
+
+    if (currentSection === 'students') loadStudents(1);
+    else navigateTo('students');
+}
+
+async function openStudentDetail(studentKey) {
     const panel = document.getElementById('studentDetail');
     const content = document.getElementById('studentDetailContent');
     panel.classList.add('open');
@@ -432,35 +549,71 @@ async function openStudentDetail(studentId) {
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     try {
-        const data = await apiFetch(`/students/${studentId}`);
+        const data = await apiFetch(`/students/${studentKey}`);
         const s = data.student;
-        document.getElementById('studentDetailTitle').textContent = `${s.name} — Details`;
+        document.getElementById('studentDetailTitle').textContent = s.name;
+
+        const totalAttempts = data.examStats.reduce((n, e) => n + Number(e.attempts), 0);
+        const examsSat = data.examStats.filter(e => Number(e.attempts) > 0).length;
 
         content.innerHTML = `
             <div class="detail-meta-grid">
-                <div class="detail-meta-item"><div class="meta-label">Email</div><div class="meta-value" style="font-size:14px">${escHtml(s.email)}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Email</div><div class="meta-value" style="font-size:13px">${escHtml(s.email)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Roll No</div><div class="meta-value">${fmt(s.roll_number)}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Branch</div><div class="meta-value">${fmt(s.branch)}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Tests Taken</div><div class="meta-value">${data.attempts.length}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Programme</div><div class="meta-value" style="font-size:14px">${fmt(s.programme)}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Discipline</div><div class="meta-value" style="font-size:14px">${fmt(s.discipline)}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Signed In</div><div class="meta-value" style="font-size:14px">${s.has_signed_in ? fmtDate(s.registered_at) : 'Never'}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Mocks Taken</div><div class="meta-value">${totalAttempts}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Exams Sat</div><div class="meta-value">${examsSat} / ${data.examStats.length}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Violations</div><div class="meta-value">${data.violations.length}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Registered</div><div class="meta-value" style="font-size:13px">${fmtDate(s.created_at)}</div></div>
             </div>
 
-            <h4 class="detail-subhead">Attempt History</h4>
+            <h4 class="detail-subhead">Performance on each mock exam</h4>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr>
+                        <th>Mock exam</th><th>Attempts</th><th>Best</th><th>Best %</th>
+                        <th>Avg</th><th>Last attempt</th>
+                    </tr></thead>
+                    <tbody>
+                        ${data.examStats.map(e => Number(e.attempts) === 0 ? `
+                            <tr class="exam-stat-row-none">
+                                <td>${escHtml(e.title)}</td>
+                                <td><span class="badge badge-danger">Not attempted</span></td>
+                                <td>—</td><td>—</td><td>—</td><td>—</td>
+                            </tr>` : `
+                            <tr>
+                                <td>${escHtml(e.title)}</td>
+                                <td><strong>${e.attempts}</strong></td>
+                                <td>${fmtScore(e.best_score)} / ${fmtScore(e.max_score)}</td>
+                                <td>${e.best_pct === null ? '—' : e.best_pct + '%'}</td>
+                                <td>${fmtScore(e.avg_score)}</td>
+                                <td>${fmtDate(e.last_attempt_at)}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 class="detail-subhead">Every attempt</h4>
             ${data.attempts.length ? `
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Test</th><th>Score</th><th>Questions</th><th>Time</th><th>Date</th></tr></thead>
+                    <thead><tr>
+                        <th>Exam</th><th>Score</th><th>Correct</th><th>Wrong</th>
+                        <th>Time</th><th>Flags</th><th>Submitted</th>
+                    </tr></thead>
                     <tbody>
                         ${data.attempts.map(a => `
                             <tr>
-                                <td>${escHtml(a.title)}</td>
-                                <td><strong>${a.score}</strong></td>
-                                <td>${a.total_questions}</td>
+                                <td>${escHtml(a.title)}${a.kind === 'legacy' ? ' <span class="badge badge-neutral">Legacy</span>' : ''}</td>
+                                <td><strong>${fmtScore(a.score)}</strong> / ${fmtScore(a.max_score)}</td>
+                                <td>${fmt(a.total_correct)}</td>
+                                <td>${fmt(a.total_wrong)}</td>
                                 <td>${fmtTime(a.time_taken_seconds)}</td>
+                                <td>${Number(a.auto_submitted) ? '<span class="badge badge-danger">Auto</span>' :
+                                     (Number(a.violation_count) ? `<span class="badge badge-warning">${a.violation_count}</span>` : '—')}</td>
                                 <td>${fmtDate(a.created_at)}</td>
-                            </tr>
-                        `).join('')}
+                            </tr>`).join('')}
                     </tbody>
                 </table>
             </div>` : '<p class="muted" style="font-size:13px">No attempts recorded.</p>'}
@@ -469,7 +622,7 @@ async function openStudentDetail(studentId) {
             <h4 class="detail-subhead">Violations</h4>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Test</th><th>Type</th><th>Count</th><th>Auto-Submitted</th><th>Date</th></tr></thead>
+                    <thead><tr><th>Exam</th><th>Type</th><th>Count</th><th>Auto-Submitted</th><th>Date</th></tr></thead>
                     <tbody>
                         ${data.violations.map(v => `
                             <tr>
@@ -478,8 +631,7 @@ async function openStudentDetail(studentId) {
                                 <td>${v.violation_count}</td>
                                 <td>${v.auto_submitted ? '<span class="badge badge-danger">Yes</span>' : '<span class="badge badge-neutral">No</span>'}</td>
                                 <td>${fmtDate(v.created_at)}</td>
-                            </tr>
-                        `).join('')}
+                            </tr>`).join('')}
                     </tbody>
                 </table>
             </div>` : ''}
@@ -736,25 +888,61 @@ async function loadQuestions(page = 1) {
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
 
-async function exportData(type) {
+// Downloads go through fetch rather than a plain link because the admin API is
+// Bearer-authenticated; an <a href> would arrive without the token.
+async function download(path, filename) {
     try {
-        showToast(`Preparing ${type} export…`);
-        const res = await fetch(`${API}/export/${type}`, {
+        showToast('Preparing export…');
+        const res = await fetch(`${API}${path}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Export failed');
+        if (!res.ok) throw new Error(`Export failed (${res.status})`);
 
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${type}_${Date.now()}.csv`;
+        a.download = filename;
+        document.body.appendChild(a);
         a.click();
+        a.remove();
         URL.revokeObjectURL(url);
-        showToast(`${type} exported successfully!`);
+        showToast('Export downloaded');
     } catch (e) {
-        showToast('Export failed: ' + e.message, 'error');
+        showToast(e.message, 'error');
     }
+}
+
+const extFor = format => (format === 'csv' ? 'csv' : 'xlsx');
+const today = () => new Date().toISOString().slice(0, 10);
+
+// The roster export carries the on-screen filters, so the sheet matches the view.
+function exportRoster(format = 'xlsx') {
+    const params = rosterFilters();
+    params.set('format', format);
+    download(`/export/roster?${params}`, `mock-compliance_${today()}.${extFor(format)}`);
+}
+
+// One row per student per exam — the sheet to hand to a department office.
+function exportMatrix(format = 'xlsx') {
+    const params = new URLSearchParams();
+    ['fExam:exam_id', 'fProgramme:programme', 'fDiscipline:discipline'].forEach(pair => {
+        const [id, key] = pair.split(':');
+        const v = (document.getElementById(id)?.value || '').trim();
+        if (v) params.append(key, v);
+    });
+    params.set('format', format);
+    download(`/export/matrix?${params}`, `student-exam-matrix_${today()}.${extFor(format)}`);
+}
+
+function exportUrl(type, format = 'xlsx') {
+    const params = new URLSearchParams({ format });
+    download(`/export/${type}?${params}`, `${type}_${today()}.${extFor(format)}`);
+}
+
+// Kept so the existing Attempts / Warnings buttons keep working.
+function exportData(type, format = 'xlsx') {
+    exportUrl(type === 'students' ? 'roster' : type, format);
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────

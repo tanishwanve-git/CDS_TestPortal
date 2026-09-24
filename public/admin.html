@@ -46,6 +46,7 @@
 
                 <div class="nav-section-label">Manage</div>
                 <div class="nav-item" data-section="students" id="nav-students">Students</div>
+                <div class="nav-item" data-section="coverage" id="nav-coverage">Mock coverage</div>
                 <div class="nav-item" data-section="tests" id="nav-tests">Tests</div>
                 <div class="nav-item" data-section="attempts" id="nav-attempts">Attempts</div>
 
@@ -180,21 +181,146 @@
                 ══════════════════════════════════════════════ -->
                 <section class="admin-section" id="section-students">
 
+                    <!-- Compliance summary. Counts respond to the filters below,
+                         except the status filter itself. -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-label">On roster</div>
+                            <div class="stat-value" id="rosterTotal">—</div>
+                        </div>
+                        <div class="stat-card alert">
+                            <div class="stat-label">Never signed in</div>
+                            <div class="stat-value" id="rosterNeverIn">—</div>
+                        </div>
+                        <div class="stat-card alert">
+                            <div class="stat-label">No mocks yet</div>
+                            <div class="stat-value" id="rosterNoMocks">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Met target</div>
+                            <div class="stat-value" id="rosterMetTarget">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Avg best %</div>
+                            <div class="stat-value" id="rosterAvgPct">—</div>
+                        </div>
+                    </div>
+
                     <div class="admin-card">
                         <div class="admin-card-header">
-                            <div class="admin-card-title">All students</div>
-                            <button type="button" class="btn btn-outline btn-sm"
-                                onclick="exportData('students')">Export CSV</button>
+                            <div class="admin-card-title">Student mock compliance</div>
+                            <div class="topbar-actions">
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="exportRoster('xlsx')">Export Excel</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="exportRoster('csv')">CSV</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="exportMatrix('xlsx')"
+                                    title="One row per student per mock exam, including students who have not attempted">Student
+                                    &times; exam sheet</button>
+                            </div>
                         </div>
                         <div class="admin-card-body">
-                            <div class="filter-bar">
-                                <input type="text" class="filter-input" id="studentSearch"
-                                    placeholder="Search name, email or roll no.">
-                                <select class="filter-select" id="studentBranch">
-                                    <option value="">All branches</option>
-                                </select>
-                                <button type="button" class="btn btn-primary btn-sm"
-                                    onclick="loadStudents(1)">Search</button>
+
+                            <div class="filter-grid">
+                                <label class="filter-field">
+                                    <span>Search</span>
+                                    <input type="text" class="filter-input" id="fSearch"
+                                        placeholder="Name, email or roll no.">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Mock exam</span>
+                                    <select class="filter-select" id="fExam">
+                                        <option value="">All mock exams</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Programme</span>
+                                    <select class="filter-select" id="fProgramme">
+                                        <option value="">All programmes</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Discipline</span>
+                                    <select class="filter-select" id="fDiscipline">
+                                        <option value="">All disciplines</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Status</span>
+                                    <select class="filter-select" id="fStatus">
+                                        <option value="">Everyone</option>
+                                        <option value="not_attempted">No mocks at all</option>
+                                        <option value="never_logged_in">Never signed in</option>
+                                        <option value="registered_no_attempt">Signed in, no mock</option>
+                                        <option value="below_target">Below target</option>
+                                        <option value="met_target">Met target</option>
+                                        <option value="attempted">Has attempted</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Target mocks</span>
+                                    <input type="number" class="filter-input" id="fTarget" min="1" value="3">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Attempts min</span>
+                                    <input type="number" class="filter-input" id="fMinAttempts" min="0"
+                                        placeholder="any">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Attempts max</span>
+                                    <input type="number" class="filter-input" id="fMaxAttempts" min="0"
+                                        placeholder="any">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Best % min</span>
+                                    <input type="number" class="filter-input" id="fMinPct" min="0" max="100"
+                                        placeholder="any">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Best % max</span>
+                                    <input type="number" class="filter-input" id="fMaxPct" min="0" max="100"
+                                        placeholder="any">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Attempted from</span>
+                                    <input type="date" class="filter-input" id="fFrom">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Attempted to</span>
+                                    <input type="date" class="filter-input" id="fTo">
+                                </label>
+                                <label class="filter-field">
+                                    <span>Sort by</span>
+                                    <select class="filter-select" id="fSort">
+                                        <option value="attempts_asc">Fewest mocks first</option>
+                                        <option value="attempts_desc">Most mocks first</option>
+                                        <option value="last_asc">Least recently active</option>
+                                        <option value="last_desc">Most recently active</option>
+                                        <option value="best_asc">Lowest best %</option>
+                                        <option value="best_desc">Highest best %</option>
+                                        <option value="name_asc">Name</option>
+                                        <option value="roll_asc">Roll no.</option>
+                                    </select>
+                                </label>
+                                <div class="filter-field filter-actions">
+                                    <button type="button" class="btn btn-primary btn-sm"
+                                        onclick="loadStudents(1)">Apply</button>
+                                    <button type="button" class="btn btn-outline btn-sm"
+                                        onclick="resetRosterFilters()">Reset</button>
+                                </div>
+                            </div>
+
+                            <div class="quick-filters">
+                                <span class="eyebrow">Quick lists</span>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="quickFilter('not_attempted')">Never taken a mock</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="quickFilter('never_logged_in')">Never signed in</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="quickFilter('below_target')">Below target</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="quickFilter('attempted')">Has attempted</button>
                             </div>
 
                             <div class="admin-table-wrap">
@@ -203,17 +329,20 @@
                                         <tr>
                                             <th>Student</th>
                                             <th>Roll no.</th>
-                                            <th>Branch</th>
-                                            <th>Tests</th>
-                                            <th>Avg</th>
-                                            <th>Best</th>
-                                            <th>Registered</th>
+                                            <th>Programme</th>
+                                            <th>Discipline</th>
+                                            <th>Signed in</th>
+                                            <th>Mocks</th>
+                                            <th>Exams</th>
+                                            <th>Best %</th>
+                                            <th>Avg %</th>
+                                            <th>Last attempt</th>
                                             <th></th>
                                         </tr>
                                     </thead>
                                     <tbody id="studentsTableBody">
                                         <tr>
-                                            <td colspan="8" class="loading-spinner">
+                                            <td colspan="11" class="loading-spinner">
                                                 <div class="spinner"></div>Loading…
                                             </td>
                                         </tr>
@@ -221,18 +350,6 @@
                                 </table>
                             </div>
                             <div class="pagination" id="studentsPagination"></div>
-                        </div>
-                    </div>
-
-                    <!-- Branch Distribution -->
-                    <div class="admin-card">
-                        <div class="admin-card-header">
-                            <div class="admin-card-title">Branch distribution</div>
-                        </div>
-                        <div class="admin-card-body" id="branchDistContainer">
-                            <div class="loading-spinner">
-                                <div class="spinner"></div>Loading…
-                            </div>
                         </div>
                     </div>
 
@@ -246,6 +363,49 @@
                         <div id="studentDetailContent"></div>
                     </div>
 
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     MOCK COVERAGE
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-coverage">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Coverage by mock exam</div>
+                            <div class="topbar-actions">
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="exportUrl('coverage', 'xlsx')">Export Excel</button>
+                                <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="exportUrl('coverage', 'csv')">CSV</button>
+                            </div>
+                        </div>
+                        <div class="admin-card-body" style="padding:0;">
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Exam</th>
+                                            <th>Eligible</th>
+                                            <th>Attempted</th>
+                                            <th>Not attempted</th>
+                                            <th>Coverage</th>
+                                            <th>Attempts</th>
+                                            <th>Avg %</th>
+                                            <th>Last attempt</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="coverageTableBody">
+                                        <tr>
+                                            <td colspan="9" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- ══════════════════════════════════════════════
