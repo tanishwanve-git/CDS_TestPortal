@@ -17,6 +17,12 @@ router.get('/exam-coverage', adminProtect, adminController.getExamCoverage);
 // no Students row can still be opened.
 router.get('/students/:studentId', adminProtect, adminController.getStudentDetail);
 
+// Allow list — the roster that gates sign-in
+router.get('/allowlist', adminProtect, adminController.getAllowlist);
+router.post('/allowlist', adminProtect, adminController.createAllowedStudent);
+router.put('/allowlist/:id', adminProtect, adminController.updateAllowedStudent);
+router.delete('/allowlist/:id', adminProtect, adminController.deleteAllowedStudent);
+
 // Tests
 router.get('/tests', adminProtect, adminController.getTests);
 router.get('/tests-list', adminProtect, adminController.getTestsList);

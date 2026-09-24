@@ -281,6 +281,208 @@ exports.getFilterOptions = async (req, res) => {
     }
 };
 
+// ─── Allow list: the roster that decides who may sign in at all ─────────────
+
+/**
+ * Sign-in is gated on `allowed_students`, so this is the only place a new
+ * student can be let into the portal. Everything below writes to that table.
+ */
+
+const ALLOWLIST_FIELDS = [
+    { key: 'roll_number', label: 'Roll number', max: 50 },
+    { key: 'name',        label: 'Name',        max: 255 },
+    { key: 'email',       label: 'Email',       max: 255 },
+    { key: 'programme',   label: 'Programme',   max: 100 },
+    { key: 'discipline',  label: 'Discipline',  max: 100 }
+];
+
+/**
+ * Trims and validates one allow-list payload.
+ * Returns { values } on success or { error } with the first problem found.
+ */
+function parseAllowedStudent(body = {}) {
+    const values = {};
+    for (const f of ALLOWLIST_FIELDS) {
+        const raw = body[f.key];
+        const val = raw === undefined || raw === null ? '' : String(raw).trim();
+        if (!val) return { error: `${f.label} is required.` };
+        if (val.length > f.max) return { error: `${f.label} must be ${f.max} characters or fewer.` };
+        values[f.key] = val;
+    }
+    // Emails are matched against the signed-in identity case-insensitively
+    // elsewhere, so fold them here and let the unique index do the same job.
+    values.email = values.email.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+        return { error: 'Email does not look like a valid address.' };
+    }
+    return { values };
+}
+
+// The unique indexes are the real duplicate check; translate MySQL's error
+// rather than pre-querying, which would still race.
+function duplicateField(error) {
+    if (error.code !== 'ER_DUP_ENTRY') return null;
+    return /email/i.test(error.sqlMessage || '') ? 'email' : 'roll number';
+}
+
+function allowlistWhere(q, { ignoreStatus = false } = {}) {
+    const where = ['1 = 1'];
+    const params = [];
+    if (q.search) {
+        where.push('(al.name LIKE ? OR al.email LIKE ? OR al.roll_number LIKE ?)');
+        const like = `%${q.search}%`;
+        params.push(like, like, like);
+    }
+    if (q.programme) { where.push('al.programme = ?'); params.push(q.programme); }
+    if (q.discipline) { where.push('al.discipline = ?'); params.push(q.discipline); }
+    if (!ignoreStatus) {
+        if (q.status === 'active') where.push('al.is_active = TRUE');
+        if (q.status === 'inactive') where.push('al.is_active = FALSE');
+    }
+    return { clause: where.join(' AND '), params };
+}
+
+exports.getAllowlist = async (req, res) => {
+    try {
+        const pool = await getPool;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 25));
+        const offset = (page - 1) * limit;
+
+        const { clause, params } = allowlistWhere(req.query);
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) AS total FROM allowed_students al WHERE ${clause}`, params
+        );
+
+        // `has_account` tells the admin whether the invite has been taken up —
+        // a roster row with no Students match has never signed in.
+        const [students] = await pool.query(
+            `SELECT al.id, al.roll_number, al.name, al.email, al.programme,
+                    al.discipline, al.is_active, al.created_at,
+                    s.id IS NOT NULL AS has_account
+               FROM allowed_students al
+               LEFT JOIN Students s ON LOWER(s.email) = LOWER(al.email)
+              WHERE ${clause}
+              ORDER BY al.created_at DESC, al.id DESC
+              LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        // Counts ignore the status filter so the cards keep showing the whole
+        // picture while the table is narrowed to one status.
+        const base = allowlistWhere(req.query, { ignoreStatus: true });
+        const [[summary]] = await pool.query(
+            `SELECT COUNT(*) AS total,
+                    COALESCE(SUM(al.is_active = TRUE), 0)  AS active,
+                    COALESCE(SUM(al.is_active = FALSE), 0) AS inactive,
+                    COALESCE(SUM(s.id IS NOT NULL), 0)     AS signed_in
+               FROM allowed_students al
+               LEFT JOIN Students s ON LOWER(s.email) = LOWER(al.email)
+              WHERE ${base.clause}`,
+            base.params
+        );
+
+        res.json({ total, page, limit, students, summary });
+    } catch (error) {
+        console.error('Admin Allowlist Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+exports.createAllowedStudent = async (req, res) => {
+    try {
+        const { values, error } = parseAllowedStudent(req.body);
+        if (error) return res.status(400).json({ message: error });
+
+        const pool = await getPool;
+        const [result] = await pool.query(
+            `INSERT INTO allowed_students
+                (roll_number, name, email, programme, discipline, is_active)
+             VALUES (?, ?, ?, ?, ?, TRUE)`,
+            [values.roll_number, values.name, values.email, values.programme, values.discipline]
+        );
+
+        const [[student]] = await pool.query(
+            'SELECT * FROM allowed_students WHERE id = ?', [result.insertId]
+        );
+        res.status(201).json({ message: `${values.name} added to the allow list.`, student });
+    } catch (error) {
+        const dup = duplicateField(error);
+        if (dup) return res.status(409).json({ message: `That ${dup} is already on the allow list.` });
+        console.error('Admin Allowlist Create Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+exports.updateAllowedStudent = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!id) return res.status(400).json({ message: 'Invalid student id.' });
+
+        const pool = await getPool;
+        const [[existing]] = await pool.query(
+            'SELECT * FROM allowed_students WHERE id = ?', [id]
+        );
+        if (!existing) return res.status(404).json({ message: 'Allow-list entry not found.' });
+
+        // A status toggle posts only `is_active`, so fall back to the stored
+        // values rather than making it round-trip the whole record.
+        const merged = {};
+        for (const f of ALLOWLIST_FIELDS) {
+            merged[f.key] = req.body[f.key] === undefined ? existing[f.key] : req.body[f.key];
+        }
+        const { values, error } = parseAllowedStudent(merged);
+        if (error) return res.status(400).json({ message: error });
+
+        // `is_active` may arrive as a JSON boolean from the console or as a
+        // string from a hand-rolled request; treat both the same way.
+        const falsey = [false, 0, '0', 'false', ''];
+        const isActive = req.body.is_active === undefined
+            ? Boolean(existing.is_active)
+            : !falsey.includes(req.body.is_active);
+
+        await pool.query(
+            `UPDATE allowed_students
+                SET roll_number = ?, name = ?, email = ?, programme = ?,
+                    discipline = ?, is_active = ?
+              WHERE id = ?`,
+            [values.roll_number, values.name, values.email, values.programme,
+             values.discipline, isActive, id]
+        );
+
+        const [[student]] = await pool.query(
+            'SELECT * FROM allowed_students WHERE id = ?', [id]
+        );
+        res.json({ message: 'Allow-list entry updated.', student });
+    } catch (error) {
+        const dup = duplicateField(error);
+        if (dup) return res.status(409).json({ message: `That ${dup} is already on the allow list.` });
+        console.error('Admin Allowlist Update Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+/**
+ * Removes the roster row only. Any Students row, attempts and results the
+ * person already has are left untouched — they simply lose access.
+ */
+exports.deleteAllowedStudent = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!id) return res.status(400).json({ message: 'Invalid student id.' });
+
+        const pool = await getPool;
+        const [result] = await pool.query('DELETE FROM allowed_students WHERE id = ?', [id]);
+        if (!result.affectedRows) return res.status(404).json({ message: 'Allow-list entry not found.' });
+
+        res.json({ message: 'Removed from the allow list.' });
+    } catch (error) {
+        console.error('Admin Allowlist Delete Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
 /**
  * One student, drilled down.
  *

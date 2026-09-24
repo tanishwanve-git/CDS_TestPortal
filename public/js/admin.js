@@ -12,7 +12,7 @@ let token = null;
 let adminUser = null;
 let currentSection = 'overview';
 let charts = {};
-let pages = { students: 1, attempts: 1, warnings: 1, questions: 1 };
+let pages = { students: 1, allowlist: 1, attempts: 1, warnings: 1, questions: 1 };
 
 // Chart.js needs literal colour values, so read the three theme colours off the
 // stylesheet rather than re-declaring a palette that could drift from base.css.
@@ -177,6 +177,12 @@ function setupApp() {
         el.addEventListener('keydown', e => { if (e.key === 'Enter') loadStudents(1); });
     });
 
+    // Allow-list panel: submit adds or saves, Enter in the search box searches.
+    document.getElementById('allowForm')?.addEventListener('submit', submitAllowForm);
+    document.getElementById('allowSearch')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); loadAllowlist(1); }
+    });
+
     loadFilterOptions();
 
     // Below 960px the sidebar is off-canvas, so the topbar carries its toggle.
@@ -193,6 +199,7 @@ function setupApp() {
 const sectionTitles = {
     overview:  ['Overview',  'Real-time portal analytics'],
     students:  ['Students',  'Mock compliance across the whole roster'],
+    allowlist: ['Allow list', 'Who is permitted to sign in to the portal'],
     coverage:  ['Mock coverage', 'Who has sat each mock exam, and who has not'],
     tests:     ['Tests',     'Test-level statistics and details'],
     attempts:  ['Attempts',  'Per-student test attempt history'],
@@ -229,6 +236,7 @@ function refreshCurrentSection() {
     switch (currentSection) {
         case 'overview':  fetchAndLoadOverview(); break;
         case 'students':  loadStudents(pages.students); break;
+        case 'allowlist': loadAllowlist(pages.allowlist); break;
         case 'coverage':  loadCoverage(); break;
         case 'tests':     loadTests(); break;
         case 'attempts':  loadAttempts(pages.attempts); break;
@@ -415,6 +423,17 @@ async function loadFilterOptions() {
         fill('fProgramme', data.programmes || []);
         fill('fDiscipline', data.disciplines || []);
         fill('fExam', data.exams || []);
+
+        // The allow-list form offers the existing values as suggestions so new
+        // rows keep spelling programmes and disciplines the same way.
+        const suggest = (id, rows) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = rows
+                .map(r => `<option value="${escHtml(String(r.value))}"></option>`).join('');
+        };
+        suggest('programmeOptions', data.programmes || []);
+        suggest('disciplineOptions', data.disciplines || []);
     } catch (e) { /* dropdowns stay at "All" */ }
 }
 
@@ -480,6 +499,168 @@ async function loadStudents(page = 1) {
         renderPagination('studentsPagination', data.total, ROSTER_LIMIT, page, loadStudents);
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="11" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
+    }
+}
+
+// ── Allow list ────────────────────────────────────────────────────────────────
+
+const ALLOW_LIMIT = 25;
+
+// Set while an existing row is being edited; null means the form adds.
+let editingAllowId = null;
+
+function allowFormValues() {
+    const val = id => (document.getElementById(id)?.value || '').trim();
+    return {
+        roll_number: val('allowRoll'),
+        name: val('allowName'),
+        email: val('allowEmail'),
+        programme: val('allowProgramme'),
+        discipline: val('allowDiscipline')
+    };
+}
+
+function resetAllowForm() {
+    editingAllowId = null;
+    ['allowId', 'allowRoll', 'allowName', 'allowEmail', 'allowProgramme', 'allowDiscipline']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('allowFormTitle').textContent = 'Add a student';
+    document.getElementById('allowSubmitBtn').textContent = 'Add to allow list';
+    document.getElementById('allowCancelEdit').style.display = 'none';
+}
+
+async function submitAllowForm(e) {
+    e.preventDefault();
+    const body = allowFormValues();
+    const btn = document.getElementById('allowSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+        const editing = editingAllowId;
+        const data = await apiFetch(editing ? `/allowlist/${editing}` : '/allowlist', {
+            method: editing ? 'PUT' : 'POST',
+            body: JSON.stringify(body)
+        });
+        showToast(data.message || 'Saved');
+        resetAllowForm();
+        // A new entry sorts to the top, so go back to page one to show it.
+        loadAllowlist(editing ? pages.allowlist : 1);
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        // A successful save clears editingAllowId, so the label follows the mode
+        // the form is left in rather than the one it was submitted in.
+        btn.disabled = false;
+        btn.textContent = editingAllowId ? 'Save changes' : 'Add to allow list';
+    }
+}
+
+// Rows carry their own data so editing needs no extra round trip.
+let allowRows = [];
+
+function editAllowed(id) {
+    const row = allowRows.find(r => r.id === id);
+    if (!row) return;
+    editingAllowId = id;
+    document.getElementById('allowId').value = id;
+    document.getElementById('allowRoll').value = row.roll_number || '';
+    document.getElementById('allowName').value = row.name || '';
+    document.getElementById('allowEmail').value = row.email || '';
+    document.getElementById('allowProgramme').value = row.programme || '';
+    document.getElementById('allowDiscipline').value = row.discipline || '';
+    document.getElementById('allowFormTitle').textContent = `Editing ${row.name}`;
+    document.getElementById('allowSubmitBtn').textContent = 'Save changes';
+    document.getElementById('allowCancelEdit').style.display = 'inline-flex';
+    document.getElementById('allowForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function toggleAllowed(id, makeActive) {
+    try {
+        await apiFetch(`/allowlist/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ is_active: makeActive })
+        });
+        showToast(makeActive ? 'Access restored' : 'Access blocked');
+        loadAllowlist(pages.allowlist);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function removeAllowed(id) {
+    const row = allowRows.find(r => r.id === id);
+    const who = row ? `${row.name} (${row.email})` : 'this entry';
+    if (!confirm(`Remove ${who} from the allow list?\n\nThey will no longer be able to sign in. Past attempts and results are kept.`)) return;
+    try {
+        const data = await apiFetch(`/allowlist/${id}`, { method: 'DELETE' });
+        showToast(data.message || 'Removed');
+        loadAllowlist(pages.allowlist);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function loadAllowlist(page = 1) {
+    pages.allowlist = page;
+    const val = id => (document.getElementById(id)?.value || '').trim();
+    const params = new URLSearchParams({ page, limit: ALLOW_LIMIT });
+    if (val('allowSearch')) params.append('search', val('allowSearch'));
+    if (val('allowStatus')) params.append('status', val('allowStatus'));
+
+    const tbody = document.getElementById('allowTableBody');
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
+
+    try {
+        const data = await apiFetch(`/allowlist?${params}`);
+        const sum = data.summary || {};
+        document.getElementById('allowTotal').textContent = fmt(sum.total, '0');
+        document.getElementById('allowActive').textContent = fmt(sum.active, '0');
+        document.getElementById('allowInactive').textContent = fmt(sum.inactive, '0');
+        document.getElementById('allowSignedIn').textContent = fmt(sum.signed_in, '0');
+
+        allowRows = data.students || [];
+
+        if (!allowRows.length) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+                <h3>Nobody on the allow list</h3>
+                <p>Add a student with the form above.</p></div></td></tr>`;
+        } else {
+            tbody.innerHTML = allowRows.map(r => {
+                const active = Number(r.is_active) === 1;
+                return `
+                <tr>
+                    <td>
+                        <div class="name-cell">${escHtml(r.name)}</div>
+                        <div class="sub-text">${escHtml(r.email)}</div>
+                    </td>
+                    <td>${fmt(r.roll_number)}</td>
+                    <td>${fmt(r.programme)}</td>
+                    <td>${r.discipline ? `<span class="badge badge-neutral">${escHtml(r.discipline)}</span>` : '—'}</td>
+                    <td>${active
+                        ? '<span class="badge badge-neutral">Active</span>'
+                        : '<span class="badge badge-danger">Blocked</span>'}</td>
+                    <td>${Number(r.has_account)
+                        ? '<span class="badge badge-neutral">Yes</span>'
+                        : '<span class="muted">Not yet</span>'}</td>
+                    <td>${fmtDate(r.created_at)}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="editAllowed(${r.id})">Edit</button>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="toggleAllowed(${r.id}, ${!active})">${active ? 'Block' : 'Unblock'}</button>
+                            <button type="button" class="btn btn-danger btn-sm"
+                                onclick="removeAllowed(${r.id})">Remove</button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        renderPagination('allowPagination', data.total, ALLOW_LIMIT, page, loadAllowlist);
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 

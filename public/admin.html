@@ -46,6 +46,7 @@
 
                 <div class="nav-section-label">Manage</div>
                 <div class="nav-item" data-section="students" id="nav-students">Students</div>
+                <div class="nav-item" data-section="allowlist" id="nav-allowlist">Allow list</div>
                 <div class="nav-item" data-section="coverage" id="nav-coverage">Mock coverage</div>
                 <div class="nav-item" data-section="tests" id="nav-tests">Tests</div>
                 <div class="nav-item" data-section="attempts" id="nav-attempts">Attempts</div>
@@ -361,6 +362,128 @@
                                 onclick="closeStudentDetail()">Close</button>
                         </div>
                         <div id="studentDetailContent"></div>
+                    </div>
+
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     ALLOW LIST
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-allowlist">
+
+                    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-label">On allow list</div>
+                            <div class="stat-value" id="allowTotal">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Active</div>
+                            <div class="stat-value" id="allowActive">—</div>
+                        </div>
+                        <div class="stat-card alert">
+                            <div class="stat-label">Blocked</div>
+                            <div class="stat-value" id="allowInactive">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Signed in</div>
+                            <div class="stat-value" id="allowSignedIn">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Add / edit form. The same form does both: picking Edit on a
+                         row fills it and flips the submit button to "Save changes". -->
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title" id="allowFormTitle">Add a student</div>
+                            <button type="button" class="btn btn-outline btn-sm" id="allowCancelEdit"
+                                style="display:none;" onclick="resetAllowForm()">Cancel edit</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <p class="muted" style="font-size:13px; margin:0 0 14px;">
+                                Only people on this list can sign in to the portal. The email must match
+                                the one they sign in with.
+                            </p>
+                            <form class="filter-grid" id="allowForm" style="border-bottom:none; margin-bottom:0;">
+                                <input type="hidden" id="allowId">
+                                <label class="filter-field">
+                                    <span>Roll number *</span>
+                                    <input type="text" class="filter-input" id="allowRoll" maxlength="50"
+                                        placeholder="23110222" required>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Name *</span>
+                                    <input type="text" class="filter-input" id="allowName" maxlength="255"
+                                        placeholder="Full name" required>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Email *</span>
+                                    <input type="email" class="filter-input" id="allowEmail" maxlength="255"
+                                        placeholder="student@iitgn.ac.in" required>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Programme *</span>
+                                    <input type="text" class="filter-input" id="allowProgramme" maxlength="100"
+                                        list="programmeOptions" placeholder="BTech" required>
+                                    <datalist id="programmeOptions"></datalist>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Discipline *</span>
+                                    <input type="text" class="filter-input" id="allowDiscipline" maxlength="100"
+                                        list="disciplineOptions" placeholder="Civil" required>
+                                    <datalist id="disciplineOptions"></datalist>
+                                </label>
+                                <div class="filter-field filter-actions">
+                                    <button type="submit" class="btn btn-primary btn-sm"
+                                        id="allowSubmitBtn">Add to allow list</button>
+                                    <button type="button" class="btn btn-outline btn-sm"
+                                        onclick="resetAllowForm()">Clear</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Allowed students</div>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="filter-bar">
+                                <input type="text" class="filter-input" id="allowSearch"
+                                    placeholder="Name, email or roll no.">
+                                <select class="filter-select" id="allowStatus">
+                                    <option value="">Any status</option>
+                                    <option value="active">Active only</option>
+                                    <option value="inactive">Blocked only</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="loadAllowlist(1)">Search</button>
+                            </div>
+
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Roll no.</th>
+                                            <th>Programme</th>
+                                            <th>Discipline</th>
+                                            <th>Status</th>
+                                            <th>Signed in</th>
+                                            <th>Added</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="allowTableBody">
+                                        <tr>
+                                            <td colspan="8" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination" id="allowPagination"></div>
+                        </div>
                     </div>
 
                 </section>

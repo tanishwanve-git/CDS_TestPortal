@@ -722,7 +722,22 @@ body {
     background: var(--surface-2);
 }
 
+/* ══ Allow list ═══════════════════════════════════════════════════════
+   Three actions per row; keep them on one line and out of the way of the
+   columns that carry the data. */
+.row-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+/* The add/edit form reuses the roster filter grid, which is built for narrow
+   filter fields; roster identity fields need a little more room. */
+#allowForm { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
 @media (max-width: 720px) {
     .filter-grid { grid-template-columns: 1fr 1fr; }
     .filter-actions { grid-column: 1 / -1; }
+    .row-actions { justify-content: flex-start; }
 }
