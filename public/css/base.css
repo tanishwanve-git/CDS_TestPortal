@@ -1,0 +1,581 @@
+/* =====================================================================
+   base.css — CDS Test Portal shared design system
+   ---------------------------------------------------------------------
+   Three colours only:
+     surface (white)  ·  ink (near-black)  ·  accent (blue)
+   Red (--alert) is not a fourth theme colour: it is reserved strictly
+   for errors, proctoring violations and destructive actions. Correct /
+   wrong / skipped states are carried by labels, weight and fill so the
+   palette never grows to encode meaning.
+
+   No rounded corners anywhere. No gradients. No drop shadows except the
+   single overlay scrim. Structure is drawn with 1px rules.
+   ===================================================================== */
+
+:root {
+    /* Surfaces — tints of white */
+    --surface:       #FFFFFF;
+    --surface-2:     #F4F4F5;   /* table heads, inert fills */
+    --surface-3:     #E8E8EA;   /* pressed / seen states */
+
+    /* Ink — one near-black, stepped down for hierarchy */
+    --ink:           #131316;
+    --ink-2:         #5A5A61;   /* secondary text */
+    --ink-3:         #8B8B93;   /* muted / placeholder */
+
+    /* Rules */
+    --rule:          #D3D3D8;
+    --rule-strong:   #A9A9B2;
+
+    /* Accent — one hue, three values */
+    --accent:        #1A4FBF;
+    --accent-dark:   #143C92;
+    --accent-wash:   #EAF0FC;
+
+    /* Errors only */
+    --alert:         #C0271A;
+    --alert-dark:    #9E1F14;
+    --alert-wash:    #FBECEA;
+
+    /* Pressed state for ink-filled controls */
+    --ink-strong:    #000000;
+
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+            Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --page-max: 1180px;
+    --header-h: 56px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    border-radius: 0;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.55;
+    background: var(--surface);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+img, svg { display: block; max-width: 100%; }
+
+h1, h2, h3, h4, h5 {
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul, ol { list-style: none; }
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+::selection { background: var(--accent); color: var(--surface); }
+
+/* Scrollbars kept plain and light */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--surface-2); }
+::-webkit-scrollbar-thumb { background: var(--rule-strong); border: 2px solid var(--surface-2); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+/* ── Typographic helpers ───────────────────────────────────────────── */
+
+/* Small-caps label used above every block of content */
+.eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+.muted { color: var(--ink-2); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Section heading: label + hairline running to the edge */
+.section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--ink);
+}
+
+.section-head h2 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.section-note {
+    color: var(--ink-2);
+    font-size: 13.5px;
+    max-width: 78ch;
+    margin: -6px 0 18px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 18px;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid var(--ink);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .12s linear, color .12s linear, border-color .12s linear;
+}
+
+.btn:hover { background: var(--surface-3); text-decoration: none; }
+.btn:active { background: var(--rule); }
+
+.btn:disabled,
+.btn[disabled] {
+    border-color: var(--rule);
+    background: var(--surface-2);
+    color: var(--ink-3);
+    cursor: not-allowed;
+}
+
+/* Primary — the one filled action per view */
+.btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--surface);
+}
+.btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn-primary:active { background: var(--accent-dark); }
+.btn-primary:disabled { background: var(--rule); border-color: var(--rule); color: var(--surface); }
+
+/* Secondary outline — same metrics, lighter rule */
+.btn-outline {
+    background: var(--surface);
+    border-color: var(--rule-strong);
+    color: var(--ink);
+}
+.btn-outline:hover { border-color: var(--ink); background: var(--surface-2); }
+
+/* Text-only */
+.btn-ghost {
+    border-color: transparent;
+    background: transparent;
+    padding: 6px 8px;
+}
+.btn-ghost:hover { background: var(--surface-2); }
+
+/* Destructive / sign-out */
+.btn-danger {
+    border-color: var(--rule-strong);
+    background: var(--surface);
+    color: var(--ink);
+}
+.btn-danger:hover {
+    border-color: var(--alert);
+    background: var(--alert-wash);
+    color: var(--alert);
+}
+
+.btn-sm { padding: 6px 12px; font-size: 12.5px; }
+.btn-lg { padding: 12px 24px; font-size: 15px; }
+.btn-block { width: 100%; }
+
+/* ── Form controls ─────────────────────────────────────────────────── */
+.input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 12px;
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    width: 100%;
+    outline: none;
+    transition: border-color .12s linear;
+}
+
+.input::placeholder,
+input::placeholder,
+textarea::placeholder { color: var(--ink-3); }
+
+.input:focus,
+input:focus,
+select:focus,
+textarea:focus { border-color: var(--accent); }
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 34px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23131316' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+}
+
+.field { margin-bottom: 14px; }
+.field > label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+}
+
+/* ── Panel: the single container primitive ─────────────────────────── */
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+}
+
+.panel + .panel { margin-top: 20px; }
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+}
+
+.panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+}
+
+.panel-body { padding: 16px; }
+.panel-body.flush { padding: 0; }
+
+/* ── Tables ────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.table th {
+    padding: 9px 14px;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule-strong);
+}
+
+.table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+    vertical-align: middle;
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background: var(--surface-2); }
+
+.table .cell-name { font-weight: 600; }
+.table .cell-sub { font-size: 12px; color: var(--ink-2); }
+.table .num { font-variant-numeric: tabular-nums; }
+
+/* Row-level link that opens a detail view */
+.row-link {
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.row-link:hover { color: var(--accent-dark); }
+
+/* ── Tags ──────────────────────────────────────────────────────────── */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface);
+    color: var(--ink-2);
+    white-space: nowrap;
+}
+
+.tag-solid { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.tag-accent { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-dark); }
+.tag-quiet { background: var(--surface-2); border-color: var(--rule); color: var(--ink-2); }
+.tag-alert { background: var(--alert-wash); border-color: var(--alert); color: var(--alert); }
+
+/* ── Stat tile ─────────────────────────────────────────────────────── */
+.stat {
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+    background: var(--surface);
+}
+
+.stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.stat-value.accent { color: var(--accent); }
+.stat-value.alert { color: var(--alert); }
+
+/* ── App header (student pages) ────────────────────────────────────── */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: var(--header-h);
+    padding: 0 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--ink);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.brand img { height: 26px; width: auto; }
+
+.brand-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-user {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+    max-width: 22ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Page shell ────────────────────────────────────────────────────── */
+.page {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 28px 24px 64px;
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(19, 19, 22, 0.55);
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal-card {
+    background: var(--surface);
+    border: 1px solid var(--ink);
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--ink);
+}
+
+.modal-head h2 {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.modal-close {
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+.modal-close:hover { border-color: var(--rule); color: var(--ink); }
+
+.modal-body {
+    padding: 18px;
+    overflow-y: auto;
+}
+
+.modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--rule);
+}
+
+/* ── Notices ───────────────────────────────────────────────────────── */
+.notice {
+    padding: 10px 14px;
+    font-size: 13.5px;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-2);
+    color: var(--ink);
+}
+
+.notice-alert {
+    border-color: var(--alert);
+    background: var(--alert-wash);
+    color: var(--alert);
+}
+
+.notice-accent {
+    border-color: var(--accent);
+    background: var(--accent-wash);
+    color: var(--accent-dark);
+}
+
+/* ── Loading / empty states ────────────────────────────────────────── */
+.spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--rule);
+    border-top-color: var(--ink);
+    animation: spin .7s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-state {
+    padding: 36px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.empty-state {
+    padding: 48px 20px;
+    text-align: center;
+}
+
+.empty-state h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.empty-state p {
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────── */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 640px) {
+    .app-header { padding: 0 16px; gap: 10px; }
+    .page { padding: 20px 16px 48px; }
+    .header-user { display: none; }
+
+    /* The actions must stay reachable, so the wordmark is what gives way */
+    .brand { min-width: 0; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { flex-shrink: 0; }
+}

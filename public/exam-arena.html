@@ -6,106 +6,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mock Exam | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/arena.css">
 </head>
 
 <body>
 
-    <!-- Fullscreen entry overlay (shown if fullscreen exits on navigation) -->
+    <!-- Fullscreen gate, shown whenever fullscreen is not active -->
     <div class="fs-entry-overlay" id="fsEntryOverlay" title="Click to enter fullscreen">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
-            </path>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="square">
+            <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5" />
         </svg>
-        <h2>Click anywhere to enter fullscreen</h2>
-        <p>Your exam will begin once fullscreen mode is active.</p>
+        <h2>Fullscreen required</h2>
+        <p>Click anywhere to enter fullscreen and continue your exam.</p>
     </div>
 
     <!-- Proctoring violation warning -->
     <div class="violation-overlay" id="violationOverlay">
         <div class="violation-box">
-            <div class="violation-icon">⚠️</div>
-            <h3>Warning: Exam Rules Violated</h3>
-            <p id="violationMsg">You switched tabs or exited fullscreen.<br>
+            <h3>Exam rules violated</h3>
+            <p id="violationMsg">You switched tabs or left fullscreen.<br>
                 Doing this again will submit your exam automatically.</p>
             <button type="button" onclick="dismissWarning()">I understand</button>
         </div>
     </div>
 
-    <header>
-        <div class="test-title" id="testTitle">Loading Mock Exam…</div>
+    <header class="exam-bar">
+        <div class="test-title" id="testTitle">Loading mock exam…</div>
         <div class="timer-badge safe" id="timerBadge">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
+            <span class="timer-label">Left</span>
             <span id="timeRemaining">--:--</span>
         </div>
     </header>
 
     <div class="arena">
 
-        <!-- Left: Question Area -->
         <main class="question-section">
+            <div class="question-inner">
 
-            <!-- One tab per section; the whole paper is navigable at any time -->
-            <div class="section-tabs" id="sectionTabs"></div>
+                <!-- One tab per section; the whole paper stays navigable -->
+                <div class="section-tabs" id="sectionTabs"></div>
 
-            <div class="q-header">
-                <span class="q-number">Question <span id="currentQNum">1</span> <span id="qOfTotal"
-                        style="color:#A1A1AA;font-weight:400;"></span></span>
-                <span class="q-marks" id="qMarks">+4 marks, -1 negative</span>
-            </div>
-
-            <div class="q-text" id="qText">
-                <div class="q-loading">Loading question…</div>
-            </div>
-
-            <ul class="options-list" id="optionsList">
-                <!-- Options / numeric input populated dynamically -->
-            </ul>
-
-            <div class="q-actions">
-                <button type="button" class="btn btn-outline" id="prevBtn">Previous</button>
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-outline" id="clearBtn">Clear Response</button>
-                    <button type="button" class="btn btn-primary" id="nextBtn">Save &amp; Next</button>
+                <div class="q-header">
+                    <span class="q-number">Question <span id="currentQNum">1</span> <span class="q-of"
+                            id="qOfTotal"></span></span>
+                    <span class="q-marks" id="qMarks">+4 marks, &minus;1 negative</span>
                 </div>
+
+                <div class="q-text" id="qText">
+                    <div class="q-loading">Loading question…</div>
+                </div>
+
+                <ul class="options-list" id="optionsList"></ul>
+
+                <div class="q-actions">
+                    <button type="button" class="btn btn-outline" id="prevBtn">Previous</button>
+                    <div class="q-actions-right">
+                        <button type="button" class="btn btn-outline" id="clearBtn">Clear response</button>
+                        <button type="button" class="btn btn-primary" id="nextBtn">Save &amp; next</button>
+                    </div>
+                </div>
+
             </div>
         </main>
 
-        <!-- Right: Palette Area -->
         <aside class="palette-section">
-            <div class="palette-header">Question Palette</div>
-            <div id="paletteBody">
-                <!-- Section-grouped palette populated dynamically -->
-            </div>
+            <div class="palette-header">Question palette</div>
+            <div id="paletteBody"></div>
 
-            <div style="margin-top: 1rem;">
-                <button type="button" class="btn btn-submit" style="width: 100%;" id="submitTestBtn">
-                    Submit Final Test
-                </button>
+            <div class="palette-actions">
+                <button type="button" class="btn btn-submit btn-block" id="submitTestBtn">Submit final test</button>
                 <div class="autosave-note" id="autosaveNote"></div>
             </div>
 
             <div class="legend">
                 <div class="legend-item">
-                    <div class="legend-box legend-answered"></div>
-                    <span>Answered &amp; Saved</span>
+                    <span class="legend-box legend-answered"></span>
+                    <span>Answered</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-box legend-visited"></div>
-                    <span>Seen, Not Answered</span>
+                    <span class="legend-box legend-visited"></span>
+                    <span>Seen, not answered</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-box legend-current"></div>
-                    <span>Current Question</span>
+                    <span class="legend-box legend-current"></span>
+                    <span>Current</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-box"></div>
-                    <span>Not Visited</span>
+                    <span class="legend-box"></span>
+                    <span>Not visited</span>
                 </div>
             </div>
         </aside>
@@ -120,11 +110,11 @@
     <!-- Confirm submit -->
     <div class="modal-overlay" id="submitModal">
         <div class="modal-box">
-            <h3 id="submitModalTitle">Submit Test?</h3>
+            <h3 id="submitModalTitle">Submit test?</h3>
             <p id="submitModalBody">Once submitted you cannot change your answers.</p>
             <div class="modal-actions">
                 <button type="button" class="btn btn-outline" id="cancelSubmitBtn">Cancel</button>
-                <button type="button" class="btn btn-submit" id="confirmSubmitBtn">Yes, Submit</button>
+                <button type="button" class="btn btn-submit" id="confirmSubmitBtn">Submit</button>
             </div>
         </div>
     </div>
@@ -132,12 +122,12 @@
     <!-- Result -->
     <div class="modal-overlay" id="resultModal">
         <div class="modal-box">
-            <h3>Test Submitted</h3>
-            <h1 id="scoreDisplay" style="color: var(--primary); margin: 1rem 0; font-size: 2.5rem;">0 / 0</h1>
+            <h3>Test submitted</h3>
+            <div class="result-score" id="scoreDisplay">0 / 0</div>
             <div class="attempt-summary" id="resultSummary"></div>
             <div class="modal-actions">
-                <button type="button" class="btn btn-outline" id="backToDashboardBtn">Back to Dashboard</button>
-                <button type="button" class="btn btn-primary" id="reviewAttemptBtn">Review Answers</button>
+                <button type="button" class="btn btn-outline" id="backToDashboardBtn">Dashboard</button>
+                <button type="button" class="btn btn-primary" id="reviewAttemptBtn">Review answers</button>
             </div>
         </div>
     </div>

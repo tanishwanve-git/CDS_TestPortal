@@ -1,457 +1,471 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | CDS Test Portal</title>
-    <meta name="description" content="CDS Test Portal Admin Dashboard — manage students, tests, attempts, warnings, and question analytics.">
+    <title>Admin Console | CDS Test Portal</title>
+    <meta name="description"
+        content="CDS Test Portal admin console — students, tests, attempts, proctoring warnings and question analytics.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/admin.css">
 </head>
+
 <body>
 
-<!-- ══════════════════════════════════════════════════════════════════
-     ACCESS WALL (shown while verifying, or on 401/403)
-══════════════════════════════════════════════════════════════════ -->
-<div class="access-wall" id="accessWall">
-    <div class="access-card">
-        <span class="access-icon" id="accessIcon">🔐</span>
-        <h2 id="accessTitle">Verifying Access…</h2>
-        <p id="accessMsg">Please wait while we verify your admin privileges.</p>
-        <a href="index.html" class="btn btn-primary" id="accessAction" style="display:none;">Go to Login</a>
+    <!-- ══════════════════════════════════════════════════════════════════
+         ACCESS WALL (shown while verifying, or on 401/403)
+    ══════════════════════════════════════════════════════════════════ -->
+    <div class="access-wall" id="accessWall">
+        <div class="access-card">
+            <p class="eyebrow">Admin console</p>
+            <h2 id="accessTitle">Verifying access…</h2>
+            <p id="accessMsg">Checking your admin privileges.</p>
+            <a href="index.html" class="btn btn-primary" id="accessAction" style="display:none;">Go to sign in</a>
+        </div>
     </div>
-</div>
 
-<!-- ══════════════════════════════════════════════════════════════════
-     ADMIN APP (hidden until auth passes)
-══════════════════════════════════════════════════════════════════ -->
-<div id="adminApp" style="display:none; width:100%; display:none;">
+    <!-- ══════════════════════════════════════════════════════════════════
+         ADMIN APP (hidden until auth passes)
+    ══════════════════════════════════════════════════════════════════ -->
+    <div id="adminApp" style="display:none; width:100%;">
 
-    <!-- SIDEBAR -->
-    <aside class="admin-sidebar" id="adminSidebar">
-        <div class="sidebar-logo">
-            <div class="logo-icon">⚙️</div>
-            <div class="logo-text">
-                <span>CDS Portal</span>
-                <span>Admin Console</span>
-            </div>
-        </div>
-
-        <nav class="sidebar-nav">
-            <div class="nav-section-label">Dashboard</div>
-            <div class="nav-item active" data-section="overview" id="nav-overview">
-                <span class="nav-icon">📊</span>
-                <span>Overview</span>
-            </div>
-
-            <div class="nav-section-label">Manage</div>
-            <div class="nav-item" data-section="students" id="nav-students">
-                <span class="nav-icon">👥</span>
-                <span>Students</span>
-            </div>
-            <div class="nav-item" data-section="tests" id="nav-tests">
-                <span class="nav-icon">📝</span>
-                <span>Tests</span>
-            </div>
-            <div class="nav-item" data-section="attempts" id="nav-attempts">
-                <span class="nav-icon">📋</span>
-                <span>Attempts</span>
-            </div>
-
-            <div class="nav-section-label">Monitor</div>
-            <div class="nav-item" data-section="warnings" id="nav-warnings">
-                <span class="nav-icon">⚠️</span>
-                <span>Warnings</span>
-            </div>
-
-            <div class="nav-section-label">Analytics</div>
-            <div class="nav-item" data-section="questions" id="nav-questions">
-                <span class="nav-icon">🧠</span>
-                <span>Questions</span>
-            </div>
-        </nav>
-
-        <div class="sidebar-footer">
-            <div class="admin-info">
-                <div class="admin-avatar" id="adminAvatarSidebar">A</div>
-                <div class="admin-info-text">
-                    <div class="admin-name" id="adminNameSidebar">Admin</div>
-                    <div class="admin-role">Administrator</div>
+        <!-- SIDEBAR -->
+        <aside class="admin-sidebar" id="adminSidebar">
+            <div class="sidebar-logo">
+                <div class="logo-text">
+                    <span>CDS Portal</span>
+                    <span>Admin console</span>
                 </div>
             </div>
-            <button class="btn-logout" id="logoutBtn">
-                <span>🚪</span> Sign Out
-            </button>
-        </div>
-    </aside>
 
-    <!-- MAIN -->
-    <div class="admin-main">
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Dashboard</div>
+                <div class="nav-item active" data-section="overview" id="nav-overview">Overview</div>
 
-        <!-- TOP BAR -->
-        <div class="admin-topbar">
-            <div>
-                <div class="topbar-title" id="topbarTitle">Overview</div>
-                <div class="topbar-subtitle" id="topbarSubtitle">Real-time portal analytics</div>
-            </div>
-            <div class="topbar-actions">
-                <a href="dashboard.html" class="btn btn-outline btn-sm" title="Return to Student Portal">🏠 Student Portal</a>
-                <button class="btn btn-outline btn-sm" id="refreshBtn" title="Refresh current section">🔄 Refresh</button>
-            </div>
-        </div>
+                <div class="nav-section-label">Manage</div>
+                <div class="nav-item" data-section="students" id="nav-students">Students</div>
+                <div class="nav-item" data-section="tests" id="nav-tests">Tests</div>
+                <div class="nav-item" data-section="attempts" id="nav-attempts">Attempts</div>
 
-        <!-- PAGE CONTENT -->
-        <div class="admin-content">
+                <div class="nav-section-label">Monitor</div>
+                <div class="nav-item" data-section="warnings" id="nav-warnings">Warnings</div>
 
-            <!-- ══════════════════════════════════════════════
-                 OVERVIEW
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section active" id="section-overview">
+                <div class="nav-section-label">Analytics</div>
+                <div class="nav-item" data-section="questions" id="nav-questions">Questions</div>
+            </nav>
 
-                <div class="stats-grid" id="overviewStats">
-                    <div class="stat-card accent">
-                        <span class="stat-icon">👥</span>
-                        <div class="stat-value" id="statStudents">—</div>
-                        <div class="stat-label">Total Students</div>
-                    </div>
-                    <div class="stat-card info">
-                        <span class="stat-icon">📝</span>
-                        <div class="stat-value" id="statTests">—</div>
-                        <div class="stat-label">Total Tests</div>
-                    </div>
-                    <div class="stat-card success">
-                        <span class="stat-icon">📋</span>
-                        <div class="stat-value" id="statAttempts">—</div>
-                        <div class="stat-label">Total Attempts</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <span class="stat-icon">📈</span>
-                        <div class="stat-value" id="statAvgScore">—</div>
-                        <div class="stat-label">Avg Score</div>
-                    </div>
-                    <div class="stat-card success">
-                        <span class="stat-icon">🏆</span>
-                        <div class="stat-value" id="statMaxScore">—</div>
-                        <div class="stat-label">Highest Score</div>
-                    </div>
-                    <div class="stat-card danger">
-                        <span class="stat-icon">⚠️</span>
-                        <div class="stat-value" id="statViolations">—</div>
-                        <div class="stat-label">Violations</div>
+            <div class="sidebar-footer">
+                <div class="admin-info">
+                    <div class="admin-avatar" id="adminAvatarSidebar">A</div>
+                    <div class="admin-info-text">
+                        <div class="admin-name" id="adminNameSidebar">Admin</div>
+                        <div class="admin-role">Administrator</div>
                     </div>
                 </div>
+                <button type="button" class="btn btn-danger btn-sm btn-block" id="logoutBtn">Sign out</button>
+            </div>
+        </aside>
 
-                <div class="grid-2">
-                    <div class="admin-card">
-                        <div class="admin-card-header">
-                            <div class="admin-card-title">📊 Attempts per Test</div>
+        <!-- MAIN -->
+        <div class="admin-main">
+
+            <!-- TOP BAR -->
+            <div class="admin-topbar">
+                <div>
+                    <div class="topbar-title" id="topbarTitle">Overview</div>
+                    <div class="topbar-subtitle" id="topbarSubtitle">Real-time portal analytics</div>
+                </div>
+                <div class="topbar-actions">
+                    <button type="button" class="btn btn-outline btn-sm sidebar-toggle" id="sidebarToggle"
+                        aria-label="Toggle navigation">Menu</button>
+                    <a href="dashboard.html" class="btn btn-outline btn-sm">Student portal</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="refreshBtn">Refresh</button>
+                </div>
+            </div>
+
+            <!-- PAGE CONTENT -->
+            <div class="admin-content">
+
+                <!-- ══════════════════════════════════════════════
+                     OVERVIEW
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section active" id="section-overview">
+
+                    <div class="stats-grid" id="overviewStats">
+                        <div class="stat-card">
+                            <div class="stat-label">Students</div>
+                            <div class="stat-value" id="statStudents">—</div>
                         </div>
-                        <div class="admin-card-body">
-                            <div class="chart-container">
-                                <canvas id="attemptsChart"></canvas>
+                        <div class="stat-card">
+                            <div class="stat-label">Tests</div>
+                            <div class="stat-value" id="statTests">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Attempts</div>
+                            <div class="stat-value" id="statAttempts">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Avg score</div>
+                            <div class="stat-value" id="statAvgScore">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Highest score</div>
+                            <div class="stat-value" id="statMaxScore">—</div>
+                        </div>
+                        <div class="stat-card alert">
+                            <div class="stat-label">Violations</div>
+                            <div class="stat-value" id="statViolations">—</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="admin-card">
+                            <div class="admin-card-header">
+                                <div class="admin-card-title">Attempts per test</div>
+                            </div>
+                            <div class="admin-card-body">
+                                <div class="chart-container">
+                                    <canvas id="attemptsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="admin-card">
+                            <div class="admin-card-header">
+                                <div class="admin-card-title">Avg score per test</div>
+                            </div>
+                            <div class="admin-card-body">
+                                <div class="chart-container">
+                                    <canvas id="avgScoreChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="admin-card">
                         <div class="admin-card-header">
-                            <div class="admin-card-title">📈 Avg Score per Test</div>
+                            <div class="admin-card-title">Recent attempts</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="navigateTo('attempts')">View all</button>
                         </div>
-                        <div class="admin-card-body">
-                            <div class="chart-container">
-                                <canvas id="avgScoreChart"></canvas>
+                        <div class="admin-card-body" style="padding:0;">
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Test</th>
+                                            <th>Score</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentAttemptsBody">
+                                        <tr>
+                                            <td colspan="4" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">🕐 Recent Attempts</div>
-                        <button class="btn btn-outline btn-sm" onclick="navigateTo('attempts')">View All</button>
-                    </div>
-                    <div class="admin-card-body" style="padding:0;">
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Student</th>
-                                        <th>Test</th>
-                                        <th>Score</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recentAttemptsBody">
-                                    <tr><td colspan="4" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     STUDENTS
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-students">
+
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">All students</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="exportData('students')">Export CSV</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="filter-bar">
+                                <input type="text" class="filter-input" id="studentSearch"
+                                    placeholder="Search name, email or roll no.">
+                                <select class="filter-select" id="studentBranch">
+                                    <option value="">All branches</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="loadStudents(1)">Search</button>
+                            </div>
+
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Roll no.</th>
+                                            <th>Branch</th>
+                                            <th>Tests</th>
+                                            <th>Avg</th>
+                                            <th>Best</th>
+                                            <th>Registered</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="studentsTableBody">
+                                        <tr>
+                                            <td colspan="8" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination" id="studentsPagination"></div>
                         </div>
                     </div>
-                </div>
 
-            </section>
-
-            <!-- ══════════════════════════════════════════════
-                 STUDENTS
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section" id="section-students">
-
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">👥 All Students</div>
-                        <button class="btn btn-outline btn-sm" onclick="exportData('students')">⬇️ Export CSV</button>
-                    </div>
-                    <div class="admin-card-body">
-                        <div class="filter-bar">
-                            <input type="text" class="filter-input" id="studentSearch" placeholder="🔍  Search by name, email or roll no…">
-                            <select class="filter-select" id="studentBranch">
-                                <option value="">All Branches</option>
-                            </select>
-                            <button class="btn btn-primary btn-sm" onclick="loadStudents(1)">Search</button>
+                    <!-- Branch Distribution -->
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Branch distribution</div>
                         </div>
-
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Student</th>
-                                        <th>Roll No</th>
-                                        <th>Branch</th>
-                                        <th>Tests Taken</th>
-                                        <th>Avg Score</th>
-                                        <th>Best Score</th>
-                                        <th>Registered</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="studentsTableBody">
-                                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="pagination" id="studentsPagination"></div>
-                    </div>
-                </div>
-
-                <!-- Branch Distribution -->
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">🏫 Branch Distribution</div>
-                    </div>
-                    <div class="admin-card-body" id="branchDistContainer">
-                        <div class="loading-spinner"><div class="spinner"></div><p>Loading…</p></div>
-                    </div>
-                </div>
-
-                <!-- Student Detail Drill-Down -->
-                <div class="detail-panel" id="studentDetail">
-                    <div class="detail-panel-header">
-                        <div class="detail-panel-title" id="studentDetailTitle">Student Details</div>
-                        <button class="btn btn-outline btn-sm" onclick="closeStudentDetail()">✕ Close</button>
-                    </div>
-                    <div id="studentDetailContent"></div>
-                </div>
-
-            </section>
-
-            <!-- ══════════════════════════════════════════════
-                 TESTS
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section" id="section-tests">
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">📝 All Tests</div>
-                    </div>
-                    <div class="admin-card-body" style="padding:0;">
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Test Title</th>
-                                        <th>Duration</th>
-                                        <th>Questions</th>
-                                        <th>Attempts</th>
-                                        <th>Students</th>
-                                        <th>Avg Score</th>
-                                        <th>Max / Min</th>
-                                        <th>Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="testsTableBody">
-                                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
+                        <div class="admin-card-body" id="branchDistContainer">
+                            <div class="loading-spinner">
+                                <div class="spinner"></div>Loading…
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
 
-            <!-- ══════════════════════════════════════════════
-                 ATTEMPTS
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section" id="section-attempts">
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">📋 Test Attempts</div>
-                        <button class="btn btn-outline btn-sm" onclick="exportData('attempts')">⬇️ Export CSV</button>
-                    </div>
-                    <div class="admin-card-body">
-                        <div class="filter-bar">
-                            <select class="filter-select" id="attemptsTestFilter">
-                                <option value="">All Tests</option>
-                            </select>
-                            <button class="btn btn-primary btn-sm" onclick="loadAttempts(1)">Filter</button>
+                    <!-- Student Detail Drill-Down -->
+                    <div class="detail-panel" id="studentDetail">
+                        <div class="detail-panel-header">
+                            <div class="detail-panel-title" id="studentDetailTitle">Student details</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="closeStudentDetail()">Close</button>
                         </div>
+                        <div id="studentDetailContent"></div>
+                    </div>
 
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Student</th>
-                                        <th>Roll No</th>
-                                        <th>Branch</th>
-                                        <th>Test</th>
-                                        <th>Score</th>
-                                        <th>Time</th>
-                                        <th>Violation</th>
-                                        <th>Date</th>
-                                        <th>Detail</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="attemptsTableBody">
-                                    <tr><td colspan="9" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     TESTS
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-tests">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">All tests</div>
                         </div>
-                        <div class="pagination" id="attemptsPagination"></div>
-                    </div>
-                </div>
-
-                <!-- Attempt Detail Drill-Down -->
-                <div class="detail-panel" id="attemptDetail">
-                    <div class="detail-panel-header">
-                        <div class="detail-panel-title">Attempt Detail</div>
-                        <button class="btn btn-outline btn-sm" onclick="closeAttemptDetail()">✕ Close</button>
-                    </div>
-                    <div id="attemptDetailContent"></div>
-                </div>
-            </section>
-
-            <!-- ══════════════════════════════════════════════
-                 WARNINGS
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section" id="section-warnings">
-
-                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-                    <div class="stat-card danger">
-                        <span class="stat-icon">⚠️</span>
-                        <div class="stat-value" id="warnTotalViolations">—</div>
-                        <div class="stat-label">Total Violations</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <span class="stat-icon">🔴</span>
-                        <div class="stat-value" id="warnAutoSubmitted">—</div>
-                        <div class="stat-label">Auto-Submitted</div>
-                    </div>
-                    <div class="stat-card info">
-                        <span class="stat-icon">👁️</span>
-                        <div class="stat-value" id="warnFiltered">—</div>
-                        <div class="stat-label">Filtered Results</div>
-                    </div>
-                </div>
-
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">⚠️ Violations Log</div>
-                        <button class="btn btn-outline btn-sm" onclick="exportData('violations')">⬇️ Export CSV</button>
-                    </div>
-                    <div class="admin-card-body">
-                        <div class="filter-bar">
-                            <select class="filter-select" id="warningsTestFilter">
-                                <option value="">All Tests</option>
-                            </select>
-                            <select class="filter-select" id="warningsAutoFilter">
-                                <option value="">All Violations</option>
-                                <option value="1">Auto-Submitted Only</option>
-                            </select>
-                            <button class="btn btn-primary btn-sm" onclick="loadWarnings(1)">Filter</button>
+                        <div class="admin-card-body" style="padding:0;">
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Test</th>
+                                            <th>Duration</th>
+                                            <th>Questions</th>
+                                            <th>Attempts</th>
+                                            <th>Students</th>
+                                            <th>Avg</th>
+                                            <th>Max / min</th>
+                                            <th>Created</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="testsTableBody">
+                                        <tr>
+                                            <td colspan="8" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Student</th>
-                                        <th>Roll No</th>
-                                        <th>Branch</th>
-                                        <th>Test</th>
-                                        <th>Violation Type</th>
-                                        <th>Count</th>
-                                        <th>Auto-Submitted</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="warningsTableBody">
-                                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="pagination" id="warningsPagination"></div>
                     </div>
-                </div>
+                </section>
 
-            </section>
-
-            <!-- ══════════════════════════════════════════════
-                 QUESTIONS
-            ══════════════════════════════════════════════ -->
-            <section class="admin-section" id="section-questions">
-                <div class="admin-card">
-                    <div class="admin-card-header">
-                        <div class="admin-card-title">🧠 Question Analytics</div>
-                    </div>
-                    <div class="admin-card-body">
-                        <div class="filter-bar">
-                            <select class="filter-select" id="questionsTestFilter">
-                                <option value="">All Tests</option>
-                            </select>
-                            <button class="btn btn-primary btn-sm" onclick="loadQuestions(1)">Filter</button>
+                <!-- ══════════════════════════════════════════════
+                     ATTEMPTS
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-attempts">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Test attempts</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="exportData('attempts')">Export CSV</button>
                         </div>
+                        <div class="admin-card-body">
+                            <div class="filter-bar">
+                                <select class="filter-select" id="attemptsTestFilter">
+                                    <option value="">All tests</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="loadAttempts(1)">Filter</button>
+                            </div>
 
-                        <div class="admin-table-wrap">
-                            <table class="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Question</th>
-                                        <th>Test</th>
-                                        <th>Section</th>
-                                        <th>Type</th>
-                                        <th>Marks</th>
-                                        <th>Attempts</th>
-                                        <th>Correct</th>
-                                        <th>Accuracy</th>
-                                        <th>Difficulty</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="questionsTableBody">
-                                    <tr><td colspan="10" class="loading-spinner"><div class="spinner"></div></td></tr>
-                                </tbody>
-                            </table>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Roll no.</th>
+                                            <th>Branch</th>
+                                            <th>Test</th>
+                                            <th>Score</th>
+                                            <th>Time</th>
+                                            <th>Violation</th>
+                                            <th>Date</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attemptsTableBody">
+                                        <tr>
+                                            <td colspan="9" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination" id="attemptsPagination"></div>
                         </div>
-                        <div class="pagination" id="questionsPagination"></div>
                     </div>
-                </div>
-            </section>
 
-        </div><!-- /admin-content -->
-    </div><!-- /admin-main -->
-</div><!-- /adminApp -->
+                    <!-- Attempt Detail Drill-Down -->
+                    <div class="detail-panel" id="attemptDetail">
+                        <div class="detail-panel-header">
+                            <div class="detail-panel-title">Attempt detail</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="closeAttemptDetail()">Close</button>
+                        </div>
+                        <div id="attemptDetailContent"></div>
+                    </div>
+                </section>
 
-<!-- Toast container -->
-<div class="toast-container" id="toastContainer"></div>
+                <!-- ══════════════════════════════════════════════
+                     WARNINGS
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-warnings">
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="js/admin.js"></script>
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="stat-card alert">
+                            <div class="stat-label">Total violations</div>
+                            <div class="stat-value" id="warnTotalViolations">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Auto-submitted</div>
+                            <div class="stat-value" id="warnAutoSubmitted">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Filtered results</div>
+                            <div class="stat-value" id="warnFiltered">—</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Violations log</div>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="exportData('violations')">Export CSV</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="filter-bar">
+                                <select class="filter-select" id="warningsTestFilter">
+                                    <option value="">All tests</option>
+                                </select>
+                                <select class="filter-select" id="warningsAutoFilter">
+                                    <option value="">All violations</option>
+                                    <option value="1">Auto-submitted only</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="loadWarnings(1)">Filter</button>
+                            </div>
+
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Roll no.</th>
+                                            <th>Branch</th>
+                                            <th>Test</th>
+                                            <th>Type</th>
+                                            <th>Count</th>
+                                            <th>Auto-submitted</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="warningsTableBody">
+                                        <tr>
+                                            <td colspan="8" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination" id="warningsPagination"></div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     QUESTIONS
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-questions">
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Question analytics</div>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="filter-bar">
+                                <select class="filter-select" id="questionsTestFilter">
+                                    <option value="">All tests</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    onclick="loadQuestions(1)">Filter</button>
+                            </div>
+
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Question</th>
+                                            <th>Test</th>
+                                            <th>Section</th>
+                                            <th>Type</th>
+                                            <th>Marks</th>
+                                            <th>Attempts</th>
+                                            <th>Correct</th>
+                                            <th>Accuracy</th>
+                                            <th>Difficulty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="questionsTableBody">
+                                        <tr>
+                                            <td colspan="10" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination" id="questionsPagination"></div>
+                        </div>
+                    </div>
+                </section>
+
+            </div><!-- /admin-content -->
+        </div><!-- /admin-main -->
+    </div><!-- /adminApp -->
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/admin.js"></script>
 </body>
+
 </html>

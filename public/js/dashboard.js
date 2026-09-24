@@ -37,13 +37,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rollEl = document.getElementById('studentRoll');
     const branchEl = document.getElementById('studentBranch');
     const programmeEl = document.getElementById('studentProgramme');
-    if (rollEl) rollEl.innerText = user.roll_number ? `Roll No: ${user.roll_number}` : 'Roll No: —';
+    if (rollEl) rollEl.innerText = user.roll_number ? `Roll no. ${user.roll_number}` : 'Roll no. —';
     if (branchEl) branchEl.innerText = user.branch || user.discipline || '—';
     if (programmeEl) {
         const prog = user.programme || '';
         if (prog) {
             programmeEl.innerText = prog;
-            programmeEl.style.display = 'inline-block';
+            programmeEl.style.display = 'inline-flex';
         } else {
             programmeEl.style.display = 'none';
         }
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ---------- Admin Console Button Check ----------
     // Silently probe the admin API — if the JWT is whitelisted as admin,
-    // reveal the "⚙️ Admin Console" button in the navbar.
+    // reveal the "Admin console" button in the header.
     const adminConsoleBtn = document.getElementById('adminConsoleBtn');
     if (adminConsoleBtn) {
         fetch(`${API_BASE}/admin/overview`, {
@@ -68,8 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).then(res => {
             if (res.ok) {
                 adminConsoleBtn.style.display = 'inline-flex';
-                adminConsoleBtn.style.alignItems = 'center';
-                adminConsoleBtn.style.gap = '6px';
                 adminConsoleBtn.addEventListener('click', () => {
                     window.location.href = `${BASE_PATH}/admin`;
                 });
@@ -101,8 +99,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // ---------- Mock exam cards ----------
         if (mockGrid) {
             mockGrid.innerHTML = allMockExams.length === 0
-                ? `<p style="color:#5f6368;padding:1rem;">No mock exams have been published yet. An administrator
-                    needs to run <code>node database/import_question_bank.js</code>.</p>`
+                ? `<div class="panel"><div class="empty-state">
+                       <h3>No mock exams published yet</h3>
+                       <p>An administrator needs to import the question bank.</p>
+                   </div></div>`
                 : allMockExams.map(renderMockCard).join('');
         }
 
@@ -111,12 +111,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (availableTests.length) {
                 legacySection.style.display = '';
                 availableGrid.innerHTML = availableTests.map(test => `
-                    <div class="test-card">
-                        <div class="test-info">
-                            <h3>${escapeHtml(test.title)}</h3>
-                            <p>${test.total_questions} Questions &nbsp;|&nbsp; ${test.duration_minutes} Minutes</p>
+                    <div class="exam-card">
+                        <div class="exam-card-body">
+                            <div class="exam-title"><h3>${escapeHtml(test.title)}</h3></div>
+                            <div class="exam-spec">${test.total_questions} questions &middot; ${test.duration_minutes} min</div>
                         </div>
-                        <button class="btn btn-primary" onclick="startTest(${test.id})">Start Test</button>
+                        <div class="exam-card-foot">
+                            <button type="button" class="btn btn-primary btn-block" onclick="startTest(${test.id})">Start test</button>
+                        </div>
                     </div>
                 `).join('');
             } else {
@@ -151,7 +153,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
             historyBody.innerHTML = rows.length === 0
-                ? '<tr><td colspan="5" style="text-align:center;color:#5f6368;padding:1rem;">No past tests found.</td></tr>'
+                ? `<tr><td colspan="5"><div class="empty-state">
+                       <h3>No attempts yet</h3><p>Your scores will appear here once you finish a test.</p>
+                   </div></td></tr>`
                 : rows.map(row => {
                     const accuracy = (row.answered && row.answered > 0)
                         ? `${Math.round((row.correct / row.answered) * 100)}%`
@@ -161,11 +165,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         : `goToReview(${row.id}, ${row.testId})`;
                     return `
                     <tr>
-                        <td><button class="review-btn" onclick="${onclick}">${escapeHtml(row.title)}</button></td>
-                        <td>${row.date ? new Date(row.date).toLocaleDateString() : '—'}</td>
-                        <td>${formatScore(row.score)} / ${formatScore(row.maxScore)}</td>
-                        <td>${accuracy}</td>
-                        <td><span class="status-pass">Completed</span></td>
+                        <td><button type="button" class="row-link" onclick="${onclick}">${escapeHtml(row.title)}</button></td>
+                        <td class="num">${row.date ? new Date(row.date).toLocaleDateString() : '—'}</td>
+                        <td class="score-cell">${formatScore(row.score)} / ${formatScore(row.maxScore)}</td>
+                        <td class="num">${accuracy}</td>
+                        <td><span class="tag tag-quiet">Completed</span></td>
                     </tr>`;
                 }).join('');
         }
@@ -207,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (pendingExamId) {
                     // Ask the server to draw this attempt's paper before leaving the
                     // page — if the draw fails there is still somewhere to show it.
-                    startFinalBtn.innerText = 'Preparing your paper…';
+                    startFinalBtn.innerText = 'Preparing paper…';
 
                     const res = await fetch(`${API_BASE}/tests/mock/${pendingExamId}/start`, {
                         method: 'POST',
@@ -254,26 +258,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderMockCard(exam) {
     const resuming = Boolean(exam.in_progress_attempt_id);
     const best = exam.best_score !== null && exam.best_score !== undefined
-        ? `Best: ${formatScore(Number(exam.best_score))} / ${exam.total_questions * 4}`
-        : 'Not attempted yet';
+        ? `Best ${formatScore(Number(exam.best_score))} / ${exam.total_questions * 4}`
+        : 'Not attempted';
 
     const sectionLabel = exam.section_count > 1
         ? `${exam.section_count} sections`
         : '1 section';
 
+    const action = resuming ? 'Resume attempt' : (exam.attempts > 0 ? 'Re-attempt' : 'Start test');
+
     return `
-        <div class="test-card${exam.is_my_department ? ' test-card-mine' : ''}">
-            <div class="test-info">
-                <h3>${escapeHtml(exam.title)}${exam.is_my_department ? ' <span class="branch-tag" style="font-size:0.7em;vertical-align:middle;">Your branch</span>' : ''}</h3>
-                <p>${exam.total_questions} Questions &nbsp;|&nbsp; ${exam.duration_minutes} Minutes &nbsp;|&nbsp; ${sectionLabel}</p>
-                <p style="font-size:0.85em;color:#5f6368;">
-                    ${best} &nbsp;·&nbsp; ${exam.attempts} attempt${exam.attempts === 1 ? '' : 's'}
-                    &nbsp;·&nbsp; drawn from ${exam.bank_size.toLocaleString()} questions
-                </p>
+        <div class="exam-card${exam.is_my_department ? ' is-mine' : ''}">
+            <div class="exam-card-body">
+                <div class="exam-title">
+                    <h3>${escapeHtml(exam.title)}</h3>
+                    ${exam.is_my_department ? '<span class="tag tag-accent">Your branch</span>' : ''}
+                </div>
+                <div class="exam-spec">
+                    ${exam.total_questions} questions &middot; ${exam.duration_minutes} min &middot; ${sectionLabel}
+                </div>
+                <div class="exam-history">
+                    ${best} &middot; ${exam.attempts} attempt${exam.attempts === 1 ? '' : 's'}
+                    &middot; bank of ${exam.bank_size.toLocaleString()}
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="startMockExam(${exam.id})">
-                ${resuming ? 'Resume Attempt' : (exam.attempts > 0 ? 'Re-attempt' : 'Start Test')}
-            </button>
+            <div class="exam-card-foot">
+                <button type="button" class="btn btn-primary btn-block" onclick="startMockExam(${exam.id})">${action}</button>
+            </div>
         </div>
     `;
 }
@@ -296,7 +307,7 @@ function startMockExam(examId) {
 
     document.getElementById('modalTestTitle').innerText = exam.title;
     document.getElementById('modalQCount').innerText = exam.total_questions;
-    document.getElementById('modalDuration').innerText = `${exam.duration_minutes} mins`;
+    document.getElementById('modalDuration').innerText = `${exam.duration_minutes} min`;
     const sectionsEl = document.getElementById('modalSections');
     if (sectionsEl) sectionsEl.innerText = exam.section_count;
 
@@ -313,7 +324,7 @@ function startTest(testId) {
 
     document.getElementById('modalTestTitle').innerText = test.title;
     document.getElementById('modalQCount').innerText = test.total_questions;
-    document.getElementById('modalDuration').innerText = `${test.duration_minutes} mins`;
+    document.getElementById('modalDuration').innerText = `${test.duration_minutes} min`;
     const sectionsEl = document.getElementById('modalSections');
     if (sectionsEl) sectionsEl.innerText = '—';
 

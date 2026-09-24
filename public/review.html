@@ -4,303 +4,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Review | CDS Portal</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css">
+    <title>Test Review | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .review-header {
-            background: #161618;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid #2E2E32;
+        .review-strip {
             display: flex;
+            align-items: baseline;
             justify-content: space-between;
-            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--ink);
+            margin-bottom: 24px;
         }
 
-        .review-header h1 {
-            font-size: 1.25rem;
-            color: #FFFFFF;
-            margin: 0;
+        .review-strip h1 { font-size: 18px; font-weight: 700; }
+
+        .review-strip .score {
+            font-size: 20px;
             font-weight: 700;
-        }
-
-        .score-badge {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22C55E;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            padding: 0.5rem 1.25rem;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .review-body {
-            max-width: 860px;
-            margin: 2rem auto;
-            padding: 0 1.5rem 4rem;
-        }
-
-        .question-review-card {
-            background: #1C1C1F;
-            border: 1px solid #2E2E32;
-            border-radius: 12px;
-            padding: 1.75rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border-left: 5px solid #2E2E32;
-        }
-
-        .question-review-card.correct {
-            border-left-color: #22C55E;
-        }
-
-        .question-review-card.incorrect {
-            border-left-color: #EF4444;
-        }
-
-        .question-review-card.skipped {
-            border-left-color: #F59E0B;
-        }
-
-        .q-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
-
-        .q-num {
-            font-weight: 700;
-            color: #A1A1AA;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-
-        .result-tag {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 700;
-        }
-
-        .tag-correct {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22C55E;
-        }
-
-        .tag-incorrect {
-            background: rgba(239, 68, 68, 0.15);
-            color: #EF4444;
-        }
-
-        .tag-skipped {
-            background: rgba(245, 158, 11, 0.15);
-            color: #F59E0B;
-        }
-
-        .q-text {
-            font-size: 1.05rem;
-            color: #FFFFFF;
-            margin-bottom: 1.25rem;
-            line-height: 1.6;
-        }
-
-        .options-review {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
-        .option-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            background: #18181B;
-            border: 1px solid #2E2E32;
-            color: #D4D4D8;
-        }
-
-        .option-row.is-student-correct {
-            background: rgba(34, 197, 94, 0.15);
-            border-color: #22C55E;
-            color: #22C55E;
-            font-weight: 600;
-        }
-
-        .option-row.is-student-wrong {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: #EF4444;
-            color: #EF4444;
-            font-weight: 600;
-        }
-
-        .option-icon {
-            font-size: 1rem;
-            min-width: 18px;
-        }
-
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 1.5rem;
-            color: #C4D1EC;
-            background: none;
-            border: none;
-            font-size: 1rem;
-            font-family: 'Inter', sans-serif;
-            cursor: pointer;
-            padding: 0;
-            font-weight: 500;
-        }
-
-        .back-btn:hover {
-            color: #D4E0F7;
-            text-decoration: underline;
+            font-variant-numeric: tabular-nums;
         }
 
         .summary-bar {
-            background: #1C1C1F;
-            border: 1px solid #2E2E32;
-            border-radius: 12px;
-            padding: 1.25rem 1.75rem;
-            margin-bottom: 2rem;
-            display: flex;
-            gap: 2rem;
-            flex-wrap: wrap;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .summary-item {
-            text-align: center;
-        }
-
-        .summary-item .val {
-            font-size: 1.75rem;
-            font-weight: 700;
-        }
-
-        .summary-item .lbl {
-            font-size: 0.8rem;
-            color: #A1A1AA;
-            text-transform: uppercase;
-        }
-
-        .val.c {
-            color: #22C55E;
-        }
-
-        .val.w {
-            color: #EF4444;
-        }
-
-        .val.s {
-            color: #F59E0B;
-        }
-
-        .val.sc {
-            color: #C4D1EC;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 28px;
         }
 
         .charts-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
+            gap: 20px;
+            margin-bottom: 32px;
         }
 
         .chart-box {
-            background: #1C1C1F;
-            border: 1px solid #2E2E32;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            height: 300px;
+            border: 1px solid var(--rule);
+            padding: 16px;
+            height: 280px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
 
         .chart-box h3 {
-            margin: 0 0 1rem 0;
-            font-size: 1rem;
-            color: #FFFFFF;
-            text-align: center;
-            width: 100%;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--ink-2);
+            margin-bottom: 12px;
         }
 
-        #loadingMsg {
-            text-align: center;
-            padding: 4rem;
-            color: #A1A1AA;
-            font-size: 1.1rem;
+        .chart-box .chart-canvas-wrap { flex: 1; min-height: 0; position: relative; }
+
+        /* ── Question cards: status carried by the left rule's pattern ──── */
+        .question-review-card {
+            position: relative;
+            border: 1px solid var(--rule);
+            padding: 16px 16px 16px 22px;
+            margin-bottom: 14px;
+        }
+
+        .question-review-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: var(--rule);
+        }
+
+        .question-review-card.correct::before { background: var(--ink); }
+
+        .question-review-card.incorrect::before {
+            background: repeating-linear-gradient(135deg,
+                    var(--ink) 0 3px, var(--surface) 3px 6px);
+        }
+
+        .question-review-card.skipped::before { background: var(--surface-3); }
+
+        .q-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .q-num { font-size: 13px; font-weight: 700; }
+        .q-section { font-size: 12.5px; color: var(--ink-2); }
+
+        .q-body {
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .q-body img {
+            max-width: 100%;
+            max-height: 340px;
+            height: auto;
+            margin-top: 12px;
+            border: 1px solid var(--rule);
+        }
+
+        .options-review { display: flex; flex-direction: column; gap: 6px; }
+
+        .option-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--rule);
+            font-size: 14px;
+        }
+
+        .option-row img {
+            max-height: 120px;
+            max-width: 100%;
+            height: auto;
+            margin-top: 6px;
+            border: 1px solid var(--rule);
+        }
+
+        /* The option they picked, when right: an ink ring, no colour spent */
+        .option-row.is-student-correct {
+            border-color: var(--ink);
+            box-shadow: inset 0 0 0 1px var(--ink);
+            font-weight: 600;
+        }
+
+        /* The option they picked, when wrong: struck through on a grey fill */
+        .option-row.is-student-wrong {
+            border-color: var(--rule-strong);
+            background: var(--surface-2);
+            text-decoration: line-through;
+        }
+
+        .option-icon {
+            min-width: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .hidden-answer-note {
+            margin-top: 12px;
+            font-size: 12.5px;
+            color: var(--ink-2);
+        }
+
+        @media (max-width: 800px) {
+            .charts-container { grid-template-columns: 1fr; }
+            .summary-bar { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 
-<body class="dashboard-body">
+<body>
 
-    <nav class="navbar">
-        <div class="nav-brand">
-            <img src="images/iitgn logo.png" alt="IITGN">
-            <span>CDS Portal</span>
+    <header class="app-header">
+        <div class="brand">
+            <img src="images/iitgn logo.png" alt="IIT Gandhinagar">
+            <span class="brand-name">CDS Test Portal</span>
         </div>
-        <div class="nav-profile">
-            <button id="logoutBtn" class="btn-outline">Logout</button>
+        <div class="header-actions">
+            <button type="button" class="btn btn-outline btn-sm"
+                onclick="window.location.href=BASE_PATH+'/dashboard.html'">Dashboard</button>
+            <button type="button" class="btn btn-danger btn-sm" id="logoutBtn">Sign out</button>
         </div>
-    </nav>
+    </header>
 
-    <div class="review-header">
-        <h1 id="reviewTitle">Test Review</h1>
-        <div class="score-badge" id="scoreBadge">Loading…</div>
-    </div>
+    <div class="page">
 
-    <div class="review-body">
-        <button class="back-btn" onclick="window.location.href=BASE_PATH+'/dashboard.html'">
-            ← Back to Dashboard
-        </button>
+        <div class="review-strip">
+            <h1 id="reviewTitle">Test review</h1>
+            <span class="score" id="scoreBadge">Loading…</span>
+        </div>
 
         <div class="summary-bar" id="summaryBar" style="display:none;">
-            <div class="summary-item">
-                <div class="val c" id="sCorrect">0</div>
-                <div class="lbl">Correct</div>
+            <div class="stat">
+                <div class="stat-label">Correct</div>
+                <div class="stat-value" id="sCorrect">0</div>
             </div>
-            <div class="summary-item">
-                <div class="val w" id="sWrong">0</div>
-                <div class="lbl">Wrong</div>
+            <div class="stat">
+                <div class="stat-label">Wrong</div>
+                <div class="stat-value" id="sWrong">0</div>
             </div>
-            <div class="summary-item">
-                <div class="val s" id="sSkipped">0</div>
-                <div class="lbl">Skipped</div>
+            <div class="stat">
+                <div class="stat-label">Skipped</div>
+                <div class="stat-value" id="sSkipped">0</div>
             </div>
-            <div class="summary-item">
-                <div class="val tm" id="sTime" style="color: #A1A1AA;">00:00</div>
-                <div class="lbl">Time Taken</div>
+            <div class="stat">
+                <div class="stat-label">Time</div>
+                <div class="stat-value" id="sTime">00:00</div>
             </div>
-            <div class="summary-item">
-                <div class="val sc" id="sScore">0</div>
-                <div class="lbl">Final Score</div>
+            <div class="stat">
+                <div class="stat-label">Score</div>
+                <div class="stat-value accent" id="sScore">0</div>
             </div>
         </div>
 
         <div class="charts-container" id="chartsContainer" style="display:none;">
             <div class="chart-box">
-                <h3>Section Performance</h3>
-                <canvas id="sectionRadarChart"></canvas>
+                <h3>Section performance</h3>
+                <div class="chart-canvas-wrap"><canvas id="sectionRadarChart"></canvas></div>
             </div>
             <div class="chart-box">
-                <h3>Score Comparison</h3>
-                <canvas id="comparisonChart"></canvas>
+                <h3>Score comparison</h3>
+                <div class="chart-canvas-wrap"><canvas id="comparisonChart"></canvas></div>
             </div>
         </div>
 
-        <div id="loadingMsg">Loading review data…</div>
+        <div class="loading-state" id="loadingMsg">Loading review data…</div>
         <div id="questionsContainer"></div>
     </div>
 
@@ -308,6 +230,16 @@
         const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
         const BASE_PATH = subpathMatch ? subpathMatch[1] : '';
         const API_BASE = `${BASE_PATH}/api`;
+
+        // Chart.js needs literal colours, so read them off the stylesheet once
+        // rather than re-declaring the palette here.
+        const css = getComputedStyle(document.documentElement);
+        const INK = css.getPropertyValue('--ink').trim() || '#131316';
+        const INK_2 = css.getPropertyValue('--ink-2').trim() || '#5A5A61';
+        const RULE = css.getPropertyValue('--rule').trim() || '#D3D3D8';
+        const RULE_STRONG = css.getPropertyValue('--rule-strong').trim() || '#A9A9B2';
+        const ACCENT = css.getPropertyValue('--accent').trim() || '#1A4FBF';
+        const ACCENT_WASH = css.getPropertyValue('--accent-wash').trim() || '#EAF0FC';
 
         // Prefix root-relative paths (e.g. "/questions/...") with the detected /mock subpath
         function resolveUrl(url) {
@@ -359,10 +291,11 @@
 
                 const { result, questions, stats } = reviewData;
 
-                document.getElementById('reviewTitle').innerText = `Review: ${result.title}`;
-                document.getElementById('scoreBadge').innerText = `Score: ${result.score} / ${result.total_questions * 4}`;
+                document.getElementById('reviewTitle').innerText = result.title;
+                document.getElementById('scoreBadge').innerText =
+                    `${result.score} / ${result.total_questions * 4}`;
                 document.getElementById('loadingMsg').style.display = 'none';
-                document.getElementById('summaryBar').style.display = 'flex';
+                document.getElementById('summaryBar').style.display = 'grid';
                 document.getElementById('chartsContainer').style.display = 'grid';
 
                 let correct = stats.totalCorrect;
@@ -370,6 +303,7 @@
                 let skipped = result.total_questions - (correct + wrong);
 
                 const container = document.getElementById('questionsContainer');
+                let html = '';
 
                 questions.forEach((q, idx) => {
                     const options = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
@@ -380,55 +314,64 @@
                         status = q.isCorrect ? 'correct' : 'incorrect';
                     }
 
-                    const tagClass = status === 'correct' ? 'tag-correct' : status === 'incorrect' ? 'tag-incorrect' : 'tag-skipped';
-                    const tagText = status === 'correct' ? '✓ Correct' : status === 'incorrect' ? '✗ Wrong' : '— Skipped';
+                    const tagClass = status === 'correct'
+                        ? 'tag tag-solid'
+                        : status === 'incorrect' ? 'tag' : 'tag tag-quiet';
+                    const tagText = status === 'correct'
+                        ? 'Correct'
+                        : status === 'incorrect' ? 'Wrong' : 'Skipped';
 
                     let optionsHTML = '';
                     Object.entries(options).forEach(([key, val]) => {
                         let cls = '';
-                        let icon = '○';
+                        let icon = '&nbsp;';
 
                         const isImage = (typeof val === 'string' && val.match(/^(https?:\/\/|\/).*\.(png|jpg|jpeg|gif|webp|svg)$/i));
                         let displayValue = isImage
-                            ? `<br><img src="${resolveUrl(val)}" alt="Option ${key}" style="max-height: 120px; max-width: 100%; border-radius: 4px; margin-top: 5px;">`
+                            ? `<img src="${resolveUrl(val)}" alt="Option ${key}">`
                             : val;
-                        // Logic: Highlight if THEY chose it. Never tell what is true.
+
+                        // Highlight only what the student picked. Never reveal the key.
                         if (key === studentAns) {
                             if (status === 'correct') {
                                 cls = 'is-student-correct';
-                                icon = '✓';
+                                icon = '&#10003;';
                             } else if (status === 'incorrect') {
                                 cls = 'is-student-wrong';
-                                icon = '✗';
+                                icon = '&#10007;';
                             }
                         }
 
                         optionsHTML += `
                             <div class="option-row ${cls}">
                                 <span class="option-icon">${icon}</span>
-                                <div><strong>${key}:</strong> ${displayValue}</div>
+                                <div><strong>${key}</strong> &nbsp; ${displayValue}</div>
                             </div>`;
                     });
 
                     let qHtml = q.question_text.replace(/\n/g, '<br>');
                     if (q.image_url && q.image_url.trim() !== '') {
-                        qHtml += `<br><img src="${resolveUrl(q.image_url)}" alt="Question Image" style="max-width: 100%; max-height: 350px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+                        qHtml += `<img src="${resolveUrl(q.image_url)}" alt="Question image">`;
                     }
 
-                    container.innerHTML += `
+                    html += `
                         <div class="question-review-card ${status}">
-                            <div class="q-meta">
+                            <div class="q-meta-row">
                                 <div>
                                     <span class="q-num">Question ${idx + 1}</span>
-                                    <span style="font-size: 0.8rem; color: #A1A1AA; margin-left:10px;">• ${q.section_name}</span>
+                                    <span class="q-section">&middot; ${escapeHtml(q.section_name)}</span>
                                 </div>
-                                <span class="result-tag ${tagClass}">${tagText}</span>
+                                <span class="${tagClass}">${tagText}</span>
                             </div>
-                            <div class="q-text">${qHtml}</div>
+                            <div class="q-body">${qHtml}</div>
                             <div class="options-review">${optionsHTML}</div>
-                            ${status === 'incorrect' ? `<p style="margin-top:1rem;font-size:0.9rem;color:#EF4444; font-weight:500;">Incorrect. The correct answer has been hidden.</p>` : ''}
+                            ${status === 'incorrect'
+                            ? '<p class="hidden-answer-note">The correct answer is not shown for this paper.</p>'
+                            : ''}
                         </div>`;
                 });
+
+                container.innerHTML = html;
 
                 document.getElementById('sCorrect').innerText = correct;
                 document.getElementById('sWrong').innerText = wrong;
@@ -441,7 +384,6 @@
                 const seconds = (totalSeconds % 60).toString().padStart(2, '0');
                 document.getElementById('sTime').innerText = `${minutes}:${seconds}`;
 
-                // --- Chart Logic ---
                 renderCharts(stats, result.score);
 
             } catch (err) {
@@ -452,20 +394,19 @@
         function renderCharts(stats, finalScore) {
             const labels = stats.sectionScores.map(s => s.name);
             const scores = stats.sectionScores.map(s => s.score);
-            const maxScores = stats.sectionScores.map(s => s.maxScore);
 
-            // Chart 1: Section Performance Radar
-            const ctx1 = document.getElementById('sectionRadarChart').getContext('2d');
-            new Chart(ctx1, {
+            // Section performance — accent outline on a pale accent fill
+            new Chart(document.getElementById('sectionRadarChart').getContext('2d'), {
                 type: 'radar',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [{
-                        label: 'Your Score',
+                        label: 'Your score',
                         data: scores,
-                        backgroundColor: 'rgba(196, 209, 236, 0.2)',
-                        borderColor: '#C4D1EC',
-                        pointBackgroundColor: '#C4D1EC',
+                        backgroundColor: ACCENT_WASH,
+                        borderColor: ACCENT,
+                        pointBackgroundColor: ACCENT,
+                        pointBorderColor: ACCENT,
                         borderWidth: 2
                     }]
                 },
@@ -475,33 +416,26 @@
                     scales: {
                         r: {
                             beginAtZero: true,
-                            grid: { color: '#2E2E32' },
-                            angleLines: { color: '#2E2E32' },
-                            pointLabels: { color: '#A1A1AA' },
-                            ticks: { color: '#A1A1AA', backdropColor: 'transparent' }
+                            grid: { color: RULE },
+                            angleLines: { color: RULE },
+                            pointLabels: { color: INK_2, font: { size: 11 } },
+                            ticks: { color: INK_2, backdropColor: 'transparent', font: { size: 10 } }
                         }
                     },
-                    plugins: {
-                        legend: { labels: { color: '#FFFFFF' } }
-                    }
+                    plugins: { legend: { display: false } }
                 }
             });
 
-            // Chart 2: Comparison Bar Chart
-            const ctx2 = document.getElementById('comparisonChart').getContext('2d');
-            new Chart(ctx2, {
+            // Score comparison — ink for the student, grey for the cohort
+            new Chart(document.getElementById('comparisonChart').getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: ['Your Score', 'Average Score'],
+                    labels: ['You', 'Average'],
                     datasets: [{
-                        label: 'Points',
                         data: [finalScore, stats.averageScore],
-                        backgroundColor: [
-                            '#22C55E', // Green for you
-                            '#6B7280'  // Grey for avg
-                        ],
+                        backgroundColor: [ACCENT, RULE_STRONG],
                         borderWidth: 0,
-                        borderRadius: 6
+                        borderRadius: 0
                     }]
                 },
                 options: {
@@ -509,11 +443,17 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { display: false }, ticks: { color: '#A1A1AA' } },
-                        y: { beginAtZero: true, grid: { color: '#2E2E32' }, ticks: { color: '#A1A1AA' } }
+                        x: { grid: { display: false }, ticks: { color: INK_2, font: { size: 11 } } },
+                        y: { beginAtZero: true, grid: { color: RULE }, ticks: { color: INK_2, font: { size: 10 } } }
                     }
                 }
             });
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
         }
 
         loadReview();

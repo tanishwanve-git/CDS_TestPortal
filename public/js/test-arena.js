@@ -155,7 +155,7 @@ function loadSection(secIdx) {
 
     // Update UI for section
     const titleEl = document.getElementById('testTitle');
-    titleEl.innerHTML = `${testData.title} <span style="color:var(--primary); font-size:0.9em; margin-left:10px;">► ${section.section_name}</span>`;
+    titleEl.innerHTML = `${escapeText(testData.title)} <span class="section-name">/ ${escapeText(section.section_name)}</span>`;
 
     setupPalette();
     startTimer(timeLeft);
@@ -202,7 +202,7 @@ function renderQuestion(index) {
     let qHtml = q.question_text.replace(/\n/g, '<br>');
     if (q.image_url && q.image_url.trim() !== '') {
         const directUrl = getDirectUrl(q.image_url);
-        qHtml += `<br><img src="${directUrl}" alt="Question Image" style="max-width: 100%; max-height: 350px; margin-top: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+        qHtml += `<img class="q-inline-image" src="${directUrl}" alt="Question image">`;
     }
     document.getElementById('qText').innerHTML = qHtml;
 
@@ -212,14 +212,12 @@ function renderQuestion(index) {
     if (q.question_type === 'NAT') {
         const storedAns = userAnswers[q.id] || '';
         list.innerHTML = `
-            <div style="margin-top:20px;">
-                <input type="text" id="natInput_${q.id}" value="${storedAns}" placeholder="Enter your numerical answer here" 
-                       style="padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; width: 100%; box-sizing: border-box;" 
+            <li>
+                <input type="text" class="nat-input" id="natInput_${q.id}" value="${storedAns}"
+                       placeholder="Numerical answer" autocomplete="off"
                        oninput="handleNatInput(${q.id}, this.value)">
-            </div>
-            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
-                <i>Marks: +${parseFloat(q.marks ?? 4)} / -${parseFloat(q.negative_marks ?? 1)}</i>
-            </div>
+                <div class="q-mark-note">Marks: +${parseFloat(q.marks ?? 4)} / −${parseFloat(q.negative_marks ?? 1)}</div>
+            </li>
         `;
     } else {
         // Options stored as JSON object  { "A": "...", "B": "..." }
@@ -235,37 +233,29 @@ function renderQuestion(index) {
             let displayValue = value;
             if (isImage) {
                 const directUrl = getDirectUrl(value);
-                displayValue = `<br><img src="${directUrl}" alt="Option ${key}" style="max-height: 150px; max-width: 100%; border-radius: 4px; margin-top: 10px;">`;
+                displayValue = `<img class="opt-inline-image" src="${directUrl}" alt="Option ${key}">`;
             }
 
             list.innerHTML += `
                 <li class="option-item ${isSelected ? 'selected' : ''}" onclick="selectOption(${q.id}, '${key}')">
                     <input type="radio" name="q_opt" value="${key}" ${isSelected ? 'checked' : ''}>
-                    <span><strong>${key}:</strong> ${displayValue}</span>
+                    <span class="opt-letter">${key}</span>
+                    <span>${displayValue}</span>
                 </li>
             `;
         });
 
         list.innerHTML += `
-            <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
-                <i>Marks: +${parseFloat(q.marks ?? 4)} / -${parseFloat(q.negative_marks ?? 1)}</i>
-            </div>
+            <li class="q-mark-note">Marks: +${parseFloat(q.marks ?? 4)} / −${parseFloat(q.negative_marks ?? 1)}</li>
         `;
 
         // Bug 3: Clear Selection button — only shown when an answer is selected
         if (userAnswers[q.id] !== undefined) {
             list.innerHTML += `
-                <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                    <button type="button"
-                        onclick="clearSelection(${q.id})"
-                        style="background: transparent; border: 1px solid #3F3F46; border-radius: 6px;
-                               color: #A1A1AA; font-size: 0.82rem; padding: 5px 14px; cursor: pointer;
-                               transition: all 0.2s; font-family: inherit;"
-                        onmouseover="this.style.borderColor='#EF4444';this.style.color='#EF4444';"
-                        onmouseout="this.style.borderColor='#3F3F46';this.style.color='#A1A1AA';">
-                        ✕ Clear Selection
-                    </button>
-                </div>
+                <li class="opt-clear-row">
+                    <button type="button" class="btn btn-outline btn-sm"
+                        onclick="clearSelection(${q.id})">Clear selection</button>
+                </li>
             `;
         }
     }
@@ -292,10 +282,10 @@ function renderQuestion(index) {
     if (isLastSection) {
         // Last section: show "Submit Final Test", hide "Submit Section"
         if (sectionBtn) sectionBtn.style.display = 'none';
-        if (finalTestBtn) finalTestBtn.style.display = 'block';
+        if (finalTestBtn) finalTestBtn.style.display = 'inline-flex';
     } else {
         // Mid sections: show "Submit Section", hide "Submit Final Test"
-        if (sectionBtn) sectionBtn.style.display = 'block';
+        if (sectionBtn) sectionBtn.style.display = 'inline-flex';
         if (finalTestBtn) finalTestBtn.style.display = 'none';
     }
 }
@@ -365,14 +355,8 @@ function startTimer(seconds) {
             clearInterval(timerInterval);
             submitCurrentSection(); // auto-submit current section
         }
-        if (timeLeft < 60) {
-            document.getElementById('timerBadge').className = 'timer-badge'; // Can add alert class here if want
-            document.getElementById('timerBadge').style.color = 'red';
-            document.getElementById('timerBadge').style.borderColor = 'red';
-        } else {
-            document.getElementById('timerBadge').style.color = '';
-            document.getElementById('timerBadge').style.borderColor = '';
-        }
+        // Under a minute the badge drops its .safe class and arena.css turns it red.
+        document.getElementById('timerBadge').classList.toggle('safe', timeLeft >= 60);
     }, 1000);
 }
 
@@ -507,17 +491,7 @@ async function performSubmit() {
         let errorModal = document.getElementById('errorModal');
         if (!errorModal) {
             errorModal = document.createElement('div');
-            errorModal.style.position = 'fixed';
-            errorModal.style.top = '20px';
-            errorModal.style.left = '50%';
-            errorModal.style.transform = 'translateX(-50%)';
-            errorModal.style.background = '#f8d7da';
-            errorModal.style.color = '#721c24';
-            errorModal.style.padding = '15px 30px';
-            errorModal.style.borderRadius = '8px';
-            errorModal.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
-            errorModal.style.zIndex = '9999';
-            errorModal.style.fontWeight = '500';
+            errorModal.className = 'arena-toast';
             errorModal.id = 'errorModal';
             document.body.appendChild(errorModal);
         }
@@ -527,7 +501,7 @@ async function performSubmit() {
         isSubmitting = false;
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerText = 'Submit Final Test';
+            submitBtn.innerText = 'Submit final test';
         }
     }
 }
@@ -552,3 +526,10 @@ document.getElementById('prevBtn').onclick = (e) => {
     e.preventDefault();
     if (currentIndex > 0) renderQuestion(currentIndex - 1);
 };
+
+// Titles come from the database and are interpolated into innerHTML.
+function escapeText(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}

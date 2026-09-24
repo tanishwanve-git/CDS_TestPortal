@@ -4,31 +4,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDS Test Portal | Login</title>
+    <title>Sign in | CDS Test Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/style.css">
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <div class="background-container"></div>
 
     <main class="login-wrapper">
         <div class="login-card">
-            <div class="login-header">
-                <h2>Welcome to CDS Test Portal</h2>
-                <p>Sign in with your IIT Gandhinagar Google account</p>
+
+            <div class="login-mast">
+                <img src="images/iitgn logo.png" alt="IIT Gandhinagar">
+                <span class="brand-name">CDS Test Portal</span>
             </div>
 
-            <div id="authMessage"
-                style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: 500; font-size: 0.88rem;">
+            <div class="login-body">
+                <div class="login-header">
+                    <h1>Sign in</h1>
+                    <p>Practice papers for the Cognitive &amp; Data Science programme.</p>
+                </div>
+
+                <div class="login-rule">
+                    Access is limited to whitelisted students. Sign in with your
+                    <strong>@iitgn.ac.in</strong> Google account.
+                </div>
+
+                <div class="notice notice-alert" id="authMessage"></div>
+
+                <div class="google-slot" id="g_id_signin"></div>
             </div>
 
-            <div class="google-only-login">
-                <p class="google-hint">Use your <strong>@iitgn.ac.in</strong> Google account to sign in</p>
-                <div id="g_id_signin"></div>
+            <div class="login-foot">
+                Trouble signing in? Contact the department office.
             </div>
+
         </div>
     </main>
 

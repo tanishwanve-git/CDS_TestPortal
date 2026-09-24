@@ -6,361 +6,210 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attempt Review | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
     <style>
-        :root {
-            --primary: #C4D1EC;
-            --border: #2E2E32;
-            --success: #22C55E;
-            --danger: #EF4444;
-            --warning: #F59E0B;
-            --muted: #A1A1AA;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            background: #121214;
-            color: #FFFFFF;
-        }
-
-        .review-header {
-            background: #161618;
-            border-bottom: 1px solid var(--border);
-            padding: 1.25rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .review-header h1 {
-            font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
-        }
-
-        .btn {
-            padding: 0.6rem 1.25rem;
-            border-radius: 6px;
-            font-weight: 600;
-            font-family: inherit;
-            font-size: 0.9rem;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: #FFFFFF;
-            transition: 0.2s;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn:hover {
-            background: #27272A;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: #121214;
-            border-color: var(--primary);
-        }
-
-        .btn-primary:hover {
-            background: #D4E0F7;
-        }
-
-        .review-body {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem 4rem;
-        }
-
         /* ── Score summary ─────────────────────────────────────────────── */
         .score-hero {
-            background: #18181B;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            text-align: center;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            border: 1px solid var(--ink);
+            padding: 20px;
+            margin-bottom: 16px;
         }
 
-        .score-hero .big {
-            font-size: 3rem;
+        .score-hero .figure {
+            font-size: 40px;
             font-weight: 700;
-            color: var(--primary);
-            line-height: 1.1;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
         }
 
-        .score-hero .sub {
-            color: var(--muted);
-            font-size: 0.95rem;
-            margin-top: 0.5rem;
+        .score-hero .figure .of {
+            font-size: 20px;
+            font-weight: 500;
+            color: var(--ink-2);
         }
+
+        .score-hero .meta {
+            font-size: 13px;
+            color: var(--ink-2);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-hero .meta strong { color: var(--ink); }
 
         .stat-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
         }
 
-        .stat-tile {
-            background: #18181B;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.25rem;
-            text-align: center;
-        }
-
-        .stat-tile .value {
-            font-size: 1.6rem;
-            font-weight: 700;
-        }
-
-        .stat-tile .label {
-            color: var(--muted);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 0.35rem;
-        }
-
-        .value-correct {
-            color: var(--success);
-        }
-
-        .value-wrong {
-            color: var(--danger);
-        }
-
-        .value-skipped {
-            color: var(--warning);
-        }
-
-        /* ── Section breakdown ─────────────────────────────────────────── */
-        h2 {
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--muted);
-            margin: 2rem 0 1rem;
-        }
-
-        .section-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #18181B;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .section-table th,
-        .section-table td {
-            padding: 0.85rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-        }
-
-        .section-table th {
-            color: var(--muted);
-            font-weight: 600;
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .section-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* ── Filter chips ──────────────────────────────────────────────── */
+        /* ── Filters ───────────────────────────────────────────────────── */
         .filters {
             display: flex;
-            gap: 8px;
+            gap: 0;
             flex-wrap: wrap;
-            margin-bottom: 1.25rem;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--rule);
         }
 
         .chip {
-            background: #18181B;
-            border: 1px solid var(--border);
-            color: var(--muted);
-            padding: 0.45rem 1rem;
-            border-radius: 999px;
-            font-size: 0.85rem;
+            font: inherit;
+            font-size: 13px;
             font-weight: 600;
+            padding: 8px 14px;
+            margin-bottom: -1px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--ink-2);
             cursor: pointer;
-            font-family: inherit;
         }
 
-        .chip.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: #121214;
-        }
+        .chip:hover { color: var(--ink); background: var(--surface-2); }
+        .chip.active { color: var(--ink); border-bottom-color: var(--accent); }
 
-        /* ── Question cards ────────────────────────────────────────────── */
+        /* ── Question cards ────────────────────────────────────────────────
+           Status is carried by the left rule's fill pattern and by the label,
+           never by hue: solid = correct, hatched = incorrect, pale = skipped. */
         .q-card {
-            background: #18181B;
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--border);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1.25rem;
+            position: relative;
+            border: 1px solid var(--rule);
+            padding: 16px 16px 16px 22px;
+            margin-bottom: 14px;
         }
 
-        .q-card.correct {
-            border-left-color: var(--success);
+        .q-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: var(--rule);
         }
 
-        .q-card.wrong {
-            border-left-color: var(--danger);
+        .q-card.correct::before { background: var(--ink); }
+
+        .q-card.wrong::before {
+            background: repeating-linear-gradient(135deg,
+                    var(--ink) 0 3px, var(--surface) 3px 6px);
         }
 
-        .q-card.skipped {
-            border-left-color: var(--warning);
-        }
+        .q-card.skipped::before { background: var(--surface-3); }
 
         .q-card-head {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
+            align-items: baseline;
+            gap: 12px;
             flex-wrap: wrap;
-            margin-bottom: 1rem;
+            margin-bottom: 12px;
         }
 
-        .q-num {
+        .q-num { font-size: 14px; font-weight: 700; }
+
+        .q-meta { font-size: 12.5px; color: var(--ink-2); }
+
+        .q-verdict {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .q-marks-awarded {
+            font-size: 12.5px;
             font-weight: 700;
-        }
-
-        .q-meta {
-            color: var(--muted);
-            font-size: 0.8rem;
-        }
-
-        .badge {
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.7rem;
-            border-radius: 999px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .badge-correct {
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--success);
-        }
-
-        .badge-wrong {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--danger);
-        }
-
-        .badge-skipped {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--warning);
+            font-variant-numeric: tabular-nums;
         }
 
         .q-image {
             display: block;
             width: 100%;
-            background: #FFFFFF;
-            border-radius: 6px;
-            padding: 12px;
+            height: auto;
+            border: 1px solid var(--rule);
             cursor: zoom-in;
         }
 
         .answer-row {
             display: flex;
-            gap: 2rem;
+            gap: 32px;
             flex-wrap: wrap;
-            margin-top: 1.25rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-            font-size: 0.9rem;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--rule);
         }
 
         .answer-row .label {
-            color: var(--muted);
             display: block;
-            font-size: 0.75rem;
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
+            color: var(--ink-2);
+            margin-bottom: 2px;
         }
 
         .answer-row .val {
+            font-size: 15px;
             font-weight: 700;
-            font-size: 1rem;
+            font-variant-numeric: tabular-nums;
         }
+
+        /* A struck-through answer reads as wrong without spending a colour */
+        .answer-row .val.is-wrong { text-decoration: line-through; }
+        .answer-row .val.is-blank { color: var(--ink-3); font-weight: 500; }
 
         .image-lightbox {
             display: none;
             position: fixed;
             inset: 0;
             z-index: 5000;
-            background: rgba(0, 0, 0, 0.92);
+            padding: 24px;
             overflow: auto;
+            background: rgba(19, 19, 22, 0.9);
             cursor: zoom-out;
-            padding: 2rem;
         }
 
-        .image-lightbox.show {
-            display: block;
-        }
+        .image-lightbox.show { display: block; }
 
         .image-lightbox img {
             display: block;
             margin: 0 auto;
-            background: #FFFFFF;
-            border-radius: 6px;
-            padding: 16px;
             max-width: 1400px;
             width: 100%;
-        }
-
-        .msg {
-            color: var(--muted);
-            text-align: center;
-            padding: 3rem 1rem;
+            height: auto;
+            background: var(--surface);
+            padding: 12px;
         }
 
         @media (max-width: 640px) {
-            .review-body {
-                padding: 1.25rem 1rem 3rem;
-            }
-
-            .score-hero .big {
-                font-size: 2.2rem;
-            }
+            .stat-row { grid-template-columns: repeat(2, 1fr); }
+            .score-hero .meta { text-align: left; }
         }
     </style>
 </head>
 
 <body>
 
-    <div class="review-header">
-        <h1 id="reviewTitle">Attempt Review</h1>
-        <div style="display:flex;gap:10px;">
-            <button class="btn" id="retakeBtn" style="display:none;">Take Again</button>
-            <button class="btn btn-primary" id="backBtn">Back to Dashboard</button>
+    <header class="app-header">
+        <div class="brand">
+            <span class="brand-name" id="reviewTitle">Attempt review</span>
         </div>
-    </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="retakeBtn" style="display:none;">Take again</button>
+            <button type="button" class="btn btn-primary btn-sm" id="backBtn">Dashboard</button>
+        </div>
+    </header>
 
-    <div class="review-body" id="reviewBody">
-        <div class="msg" id="loadingMsg">Loading your attempt…</div>
+    <div class="page" id="reviewBody">
+        <div class="loading-state" id="loadingMsg">Loading your attempt…</div>
     </div>
 
     <div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
@@ -409,7 +258,7 @@
 
                 // Re-attempting draws a completely different paper, so offer it here.
                 const retakeBtn = document.getElementById('retakeBtn');
-                retakeBtn.style.display = 'inline-block';
+                retakeBtn.style.display = 'inline-flex';
                 retakeBtn.onclick = startRetake;
 
             } catch (err) {
@@ -426,43 +275,52 @@
 
             const sectionRows = stats.sectionScores.map(s => `
                 <tr>
-                    <td>${escapeHtml(s.name)}</td>
-                    <td>${fmt(s.score)} / ${fmt(s.maxScore)}</td>
-                    <td style="color:var(--success);">${s.correct}</td>
-                    <td style="color:var(--danger);">${s.wrong}</td>
-                    <td style="color:var(--warning);">${s.skipped}</td>
+                    <td class="cell-name">${escapeHtml(s.name)}</td>
+                    <td class="num">${fmt(s.score)} / ${fmt(s.maxScore)}</td>
+                    <td class="num">${s.correct}</td>
+                    <td class="num">${s.wrong}</td>
+                    <td class="num">${s.skipped}</td>
                 </tr>`).join('');
 
             document.getElementById('reviewBody').innerHTML = `
                 <div class="score-hero">
-                    <div class="big">${fmt(attempt.score)} <span style="font-size:1.5rem;color:var(--muted);">/ ${fmt(attempt.max_score)}</span></div>
-                    <div class="sub">
-                        ${pct}% &nbsp;·&nbsp; finished in ${minutes}m ${seconds}s
-                        &nbsp;·&nbsp; average across all ${stats.attemptsOnThisExam} attempt(s) of this exam:
-                        <strong style="color:#FFF;">${fmt(stats.averageScore)}</strong>
+                    <div>
+                        <div class="eyebrow">Final score</div>
+                        <div class="figure">${fmt(attempt.score)} <span class="of">/ ${fmt(attempt.max_score)}</span></div>
+                    </div>
+                    <div class="meta">
+                        ${pct}% &middot; finished in ${minutes}m ${seconds}s<br>
+                        Average over ${stats.attemptsOnThisExam} attempt(s):
+                        <strong>${fmt(stats.averageScore)}</strong>
                     </div>
                 </div>
 
                 <div class="stat-row">
-                    <div class="stat-tile"><div class="value value-correct">${stats.totalCorrect}</div><div class="label">Correct</div></div>
-                    <div class="stat-tile"><div class="value value-wrong">${stats.totalWrong}</div><div class="label">Incorrect</div></div>
-                    <div class="stat-tile"><div class="value value-skipped">${stats.totalSkipped}</div><div class="label">Unanswered</div></div>
-                    <div class="stat-tile"><div class="value">${attempt.total_questions}</div><div class="label">Total</div></div>
+                    <div class="stat"><div class="stat-label">Correct</div><div class="stat-value">${stats.totalCorrect}</div></div>
+                    <div class="stat"><div class="stat-label">Incorrect</div><div class="stat-value">${stats.totalWrong}</div></div>
+                    <div class="stat"><div class="stat-label">Unanswered</div><div class="stat-value">${stats.totalSkipped}</div></div>
+                    <div class="stat"><div class="stat-label">Total</div><div class="stat-value">${attempt.total_questions}</div></div>
                 </div>
 
                 ${stats.sectionScores.length > 1 ? `
-                <h2>Section Breakdown</h2>
-                <table class="section-table">
-                    <thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Skipped</th></tr></thead>
-                    <tbody>${sectionRows}</tbody>
-                </table>` : ''}
+                <section style="margin-bottom:32px;">
+                    <div class="section-head"><h2>Section breakdown</h2></div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table class="table">
+                                <thead><tr><th>Section</th><th>Score</th><th>Correct</th><th>Wrong</th><th>Skipped</th></tr></thead>
+                                <tbody>${sectionRows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>` : ''}
 
-                <h2>Question by Question</h2>
+                <div class="section-head"><h2>Question by question</h2></div>
                 <div class="filters">
-                    <button class="chip active" data-filter="all" onclick="setFilter('all')">All (${allQuestions.length})</button>
-                    <button class="chip" data-filter="wrong" onclick="setFilter('wrong')">Incorrect (${stats.totalWrong})</button>
-                    <button class="chip" data-filter="skipped" onclick="setFilter('skipped')">Unanswered (${stats.totalSkipped})</button>
-                    <button class="chip" data-filter="correct" onclick="setFilter('correct')">Correct (${stats.totalCorrect})</button>
+                    <button type="button" class="chip active" data-filter="all" onclick="setFilter('all')">All ${allQuestions.length}</button>
+                    <button type="button" class="chip" data-filter="wrong" onclick="setFilter('wrong')">Incorrect ${stats.totalWrong}</button>
+                    <button type="button" class="chip" data-filter="skipped" onclick="setFilter('skipped')">Unanswered ${stats.totalSkipped}</button>
+                    <button type="button" class="chip" data-filter="correct" onclick="setFilter('correct')">Correct ${stats.totalCorrect}</button>
                 </div>
                 <div id="questionList"></div>
             `;
@@ -488,39 +346,44 @@
             );
 
             if (!shown.length) {
-                list.innerHTML = '<div class="msg">Nothing in this category.</div>';
+                list.innerHTML = '<div class="empty-state"><h3>Nothing in this category</h3></div>';
                 return;
             }
 
             list.innerHTML = shown.map(q => {
                 const status = q.isCorrect ? 'correct' : (q.isWrong ? 'wrong' : 'skipped');
-                const label = q.isCorrect ? 'Correct' : (q.isWrong ? 'Incorrect' : 'Not Answered');
+                const label = q.isCorrect ? 'Correct' : (q.isWrong ? 'Incorrect' : 'Not answered');
+                // Solid tag for correct, outlined for incorrect, quiet for blank —
+                // weight and fill do the work that colour would otherwise do.
+                const tagClass = q.isCorrect ? 'tag tag-solid' : (q.isWrong ? 'tag' : 'tag tag-quiet');
                 const src = q.image_url.startsWith('/') ? `${BASE_PATH}${q.image_url}` : q.image_url;
+                const awarded = `${q.marks_awarded > 0 ? '+' : ''}${fmt(q.marks_awarded)}`;
 
                 return `
                 <div class="q-card ${status}">
                     <div class="q-card-head">
                         <div>
                             <span class="q-num">Question ${q.position}</span>
-                            <span class="q-meta">&nbsp;·&nbsp; ${escapeHtml(q.section_name)} · ${q.question_type}${q.source ? ' · ' + escapeHtml(q.source) : ''}</span>
+                            <span class="q-meta">&middot; ${escapeHtml(q.section_name)} &middot; ${q.question_type}${q.source ? ' &middot; ' + escapeHtml(q.source) : ''}</span>
                         </div>
-                        <span class="badge badge-${status}">${label} &nbsp; ${q.marks_awarded > 0 ? '+' : ''}${fmt(q.marks_awarded)}</span>
+                        <span class="q-verdict">
+                            <span class="${tagClass}">${label}</span>
+                            <span class="q-marks-awarded">${awarded}</span>
+                        </span>
                     </div>
                     <img class="q-image" src="${src}" alt="Question ${q.position}" onclick="openLightbox('${src}')">
                     <div class="answer-row">
                         <div>
                             <span class="label">Your answer</span>
-                            <span class="val" style="color:${q.isCorrect ? 'var(--success)' : (q.isWrong ? 'var(--danger)' : 'var(--warning)')};">
-                                ${q.studentAnswer !== null ? escapeHtml(q.studentAnswer) : '—'}
-                            </span>
+                            <span class="val ${q.isWrong ? 'is-wrong' : ''} ${q.isSkipped ? 'is-blank' : ''}">${q.studentAnswer !== null ? escapeHtml(q.studentAnswer) : 'Blank'}</span>
                         </div>
                         <div>
                             <span class="label">Correct answer</span>
-                            <span class="val" style="color:var(--success);">${escapeHtml(q.correctAnswer)}</span>
+                            <span class="val">${escapeHtml(q.correctAnswer)}</span>
                         </div>
                         <div>
                             <span class="label">Marking</span>
-                            <span class="val">+${fmt(q.marks)} / ${q.negative_marks > 0 ? '-' + fmt(q.negative_marks) : '0'}</span>
+                            <span class="val">+${fmt(q.marks)} / ${q.negative_marks > 0 ? '−' + fmt(q.negative_marks) : '0'}</span>
                         </div>
                     </div>
                 </div>`;
@@ -548,7 +411,7 @@
             } catch (err) {
                 alert(err.message);
                 btn.disabled = false;
-                btn.innerText = 'Take Again';
+                btn.innerText = 'Take again';
             }
         }
 

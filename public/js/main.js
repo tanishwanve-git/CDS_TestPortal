@@ -8,10 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Utility: show message box ───────────────────────────────────────────
     function showMessage(msg, isSuccess = false) {
         if (!msgBox) return;
+        // Styling lives in base.css: .notice is neutral, .notice-alert is the
+        // one place red is allowed on this page.
+        msgBox.className = isSuccess ? 'notice' : 'notice notice-alert';
         msgBox.style.display = 'block';
-        msgBox.style.backgroundColor = isSuccess ? '#14532d22' : '#7f1d1d22';
-        msgBox.style.color            = isSuccess ? '#4ade80'   : '#f87171';
-        msgBox.style.border           = isSuccess ? '1px solid #22c55e33' : '1px solid #ef444433';
         msgBox.innerText = msg;
     }
 

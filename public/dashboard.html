@@ -5,147 +5,149 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | CDS Test Portal</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/dashboard.css">
 </head>
 
-<body class="dashboard-body">
+<body>
 
-    <nav class="navbar">
-        <div class="nav-brand">
-            <img src="images/iitgn logo.png" alt="IITGN">
-            <span>CDS Portal</span>
+    <header class="app-header">
+        <div class="brand">
+            <img src="images/iitgn logo.png" alt="IIT Gandhinagar">
+            <span class="brand-name">CDS Test Portal</span>
         </div>
-        <div class="nav-profile">
-            <span id="userNameHeader">Student Name</span>
-            <button id="adminConsoleBtn" class="btn-outline btn-admin-toggle" style="display: none; border-color: #C4D1EC; color: #C4D1EC;">⚙️ Admin Console</button>
-            <button id="logoutBtn" class="btn-outline">Logout</button>
+        <div class="header-actions">
+            <span class="header-user" id="userNameHeader">Student</span>
+            <button type="button" class="btn btn-outline btn-sm" id="adminConsoleBtn" style="display:none;">Admin
+                console</button>
+            <button type="button" class="btn btn-danger btn-sm" id="logoutBtn">Sign out</button>
         </div>
-    </nav>
+    </header>
 
-    <div class="dashboard-container">
+    <div class="page">
+        <div class="dash-grid">
 
-        <aside class="sidebar">
-            <div class="profile-card">
-                <div class="avatar">
-                    <span id="avatarLetter">S</span>
+            <aside>
+                <div class="identity">
+                    <div class="identity-top">
+                        <div class="identity-initial" id="avatarLetter">S</div>
+                        <div>
+                            <div class="identity-name" id="studentName">Student</div>
+                            <div class="identity-roll" id="studentRoll">—</div>
+                        </div>
+                    </div>
+                    <div class="identity-meta">
+                        <span class="tag" id="studentBranch">—</span>
+                        <span class="tag tag-accent" id="studentProgramme" style="display:none;"></span>
+                    </div>
                 </div>
-                <h3 id="studentName">Student Name</h3>
-                <p id="studentRoll">Roll No: —</p>
-                <div class="branch-tag" id="studentBranch">—</div>
-                <div class="programme-tag" id="studentProgramme"></div>
-            </div>
 
-            <div class="stats-overview">
-                <div class="stat-item">
-                    <h4>Tests Taken</h4>
-                    <span id="testsTaken" class="stat-value">0</span>
+                <div class="dash-stats">
+                    <div class="stat">
+                        <div class="stat-label">Taken</div>
+                        <div class="stat-value" id="testsTaken">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Available</div>
+                        <div class="stat-value" id="testsRemaining">0</div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <h4>Mock Exams</h4>
-                    <span id="testsRemaining" class="stat-value">0</span>
-                </div>
-            </div>
-        </aside>
+            </aside>
 
-        <main class="main-content">
+            <main>
 
-            <section class="upcoming-tests">
-                <h2>Mock Exams</h2>
-                <p class="section-hint">Each attempt draws a brand-new set of questions at random from the
-                    department's question bank &mdash; take the same exam as many times as you like.</p>
-                <div class="test-grid" id="mockExamsGrid">
-                    <!-- Cards dynamically populated by dashboard.js -->
-                </div>
-            </section>
+                <section>
+                    <div class="section-head">
+                        <h2>Mock exams</h2>
+                    </div>
+                    <p class="section-note">Every attempt draws a fresh set of questions at random from the
+                        department's question bank, so you can take the same exam as many times as you like.</p>
+                    <div class="exam-grid" id="mockExamsGrid"></div>
+                </section>
 
-            <section class="upcoming-tests" id="legacyTestsSection" style="display:none;">
-                <h2>Other Tests</h2>
-                <div class="test-grid" id="availableTestsGrid">
-                    <!-- Legacy fixed-paper tests, if any remain -->
-                </div>
-            </section>
+                <section id="legacyTestsSection" style="display:none; margin-top:36px;">
+                    <div class="section-head">
+                        <h2>Other tests</h2>
+                    </div>
+                    <div class="exam-grid" id="availableTestsGrid"></div>
+                </section>
 
-            <section class="past-scores">
-                <h2>Your Scores</h2>
-                <div class="table-responsive">
-                    <table class="scores-table">
-                        <thead>
-                            <tr>
-                                <th>Test Name</th>
-                                <th>Date Taken</th>
-                                <th>Score</th>
-                                <th>Accuracy</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="scoresTableBody">
-                            <!-- Rows dynamically populated by dashboard.js -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                <section style="margin-top:36px;">
+                    <div class="section-head">
+                        <h2>Your scores</h2>
+                    </div>
+                    <div class="panel">
+                        <div class="table-wrap">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Test</th>
+                                        <th>Date</th>
+                                        <th>Score</th>
+                                        <th>Accuracy</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scoresTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
 
-        </main>
-    </div><!-- End dashboard-container -->
+            </main>
+        </div>
+    </div>
 
-    <!-- Instruction Modal -->
+    <!-- Pre-start rules, shown before any attempt begins -->
     <div class="modal-overlay" id="rulesModal">
-        <div class="modal-card instruction-card">
-            <div class="modal-header">
-                <h2 id="modalTestTitle">Mock Test Title</h2>
-                <button class="close-modal" id="closeRulesBtn">&times;</button>
+        <div class="modal-card">
+            <div class="modal-head">
+                <h2 id="modalTestTitle">Mock exam</h2>
+                <button type="button" class="modal-close" id="closeRulesBtn" aria-label="Close">&times;</button>
             </div>
+
             <div class="modal-body">
-                <div class="test-details-strip">
-                    <div class="detail-item">
-                        <span class="label">Questions</span>
-                        <span class="value" id="modalQCount">0</span>
+                <div class="spec-strip">
+                    <div class="spec-item">
+                        <span class="spec-label">Questions</span>
+                        <span class="spec-value" id="modalQCount">0</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Duration</span>
-                        <span class="value" id="modalDuration">0 mins</span>
+                    <div class="spec-item">
+                        <span class="spec-label">Duration</span>
+                        <span class="spec-value" id="modalDuration">0 min</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Sections</span>
-                        <span class="value" id="modalSections">1</span>
+                    <div class="spec-item">
+                        <span class="spec-label">Sections</span>
+                        <span class="spec-value" id="modalSections">1</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Marking</span>
-                        <span class="value">+4 / -1</span>
+                    <div class="spec-item">
+                        <span class="spec-label">Marking</span>
+                        <span class="spec-value">+4 / &minus;1</span>
                     </div>
                 </div>
 
-                <div class="rules-section">
-                    <h3>Test Rules & Guidelines</h3>
-                    <ul class="rules-list">
-                        <li><strong>Academic Integrity:</strong> Use of AI tools (ChatGPT, Gemini, etc.) or external
-                            websites is strictly prohibited.</li>
-                        <li><strong>Safe Exam Browser:</strong> Switching tabs or exiting fullscreen during the exam
-                            will lead to
-                            <strong>automatic submission</strong> of your test.
-                        </li>
-                        <li><strong>Stable Connection:</strong> Ensure you have a stable internet connection before
-                            starting.</li>
-                        <li><strong>No Refresh:</strong> Do not refresh or close the page while the test is in progress.
-                        </li>
-                        <li><strong>Auto-Submit:</strong> The test will be automatically submitted when the timer
-                            reaches zero.</li>
-                        <li><strong>One Timer:</strong> A single clock runs for the whole paper. You may move freely
-                            between sections and questions until you submit.</li>
-                        <li><strong>Fresh Paper Every Time:</strong> Your questions are drawn at random when you press
-                            start, so a re-attempt will not repeat this paper.</li>
-                    </ul>
-                </div>
+                <p class="eyebrow">Rules</p>
+                <ul class="rules-list">
+                    <li><strong>Academic integrity.</strong> Using AI tools or external websites is prohibited.</li>
+                    <li><strong>Stay in fullscreen.</strong> Switching tabs or leaving fullscreen submits your test
+                        automatically.</li>
+                    <li><strong>Do not refresh.</strong> Keep this page open for the whole attempt.</li>
+                    <li><strong>One timer.</strong> A single clock runs for the whole paper; move freely between
+                        sections until you submit.</li>
+                    <li><strong>Auto-submit.</strong> The test is submitted when the timer reaches zero.</li>
+                    <li><strong>Fresh paper each time.</strong> Questions are drawn when you press start, so a
+                        re-attempt never repeats this paper.</li>
+                </ul>
 
-                <div class="disclaimer">
-                    By clicking "Start Final Test", you agree to follow the above rules.
+                <div class="notice notice-alert" style="margin-top:16px;">
+                    Starting the test means you accept these rules.
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn-outline" id="cancelRulesBtn">Go Back</button>
-                <button class="btn-primary" id="startFinalBtn">Start Final Test</button>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-outline" id="cancelRulesBtn">Go back</button>
+                <button type="button" class="btn btn-primary" id="startFinalBtn">Start test</button>
             </div>
         </div>
     </div>

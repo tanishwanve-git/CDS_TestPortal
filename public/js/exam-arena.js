@@ -229,14 +229,14 @@ function renderQuestion(index) {
 
     document.getElementById('currentQNum').innerText = index + 1;
     document.getElementById('qMarks').innerText =
-        `${q.sectionName} · +${q.marks} marks, ${q.negative_marks > 0 ? `-${q.negative_marks}` : 'no'} negative`;
+        `${q.sectionName} · +${q.marks} marks, ${q.negative_marks > 0 ? `−${q.negative_marks}` : 'no'} negative`;
 
     const src = imageSrc(q.image_url);
     document.getElementById('qText').innerHTML = `
         <div class="q-image-wrap">
             <img class="q-image" src="${src}" alt="Question ${index + 1}"
                  onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'q-loading',innerText:'This question image could not be loaded. Please inform the invigilator.'}))">
-            <button type="button" class="q-image-zoom" onclick="openLightbox('${src}')">⤢ Enlarge</button>
+            <button type="button" class="q-image-zoom" onclick="openLightbox('${src}')">Enlarge</button>
         </div>`;
 
     const list = document.getElementById('optionsList');
@@ -244,11 +244,11 @@ function renderQuestion(index) {
     if (q.question_type === 'NAT') {
         const stored = answers[q.id] ?? '';
         list.innerHTML = `
-            <li style="list-style:none;">
+            <li>
                 <input type="text" inputmode="decimal" class="nat-input" id="natInput"
-                       value="${escapeHtml(stored)}" placeholder="Type your numerical answer"
+                       value="${escapeHtml(stored)}" placeholder="Numerical answer"
                        autocomplete="off">
-                <div class="nat-hint">Numerical Answer Type — enter a number only (e.g. 12.5 or -3).</div>
+                <div class="nat-hint">Numerical answer type — enter a number only, e.g. 12.5 or &minus;3.</div>
             </li>`;
         const input = document.getElementById('natInput');
         input.addEventListener('input', () => setAnswer(q.id, input.value));
@@ -256,17 +256,16 @@ function renderQuestion(index) {
         list.innerHTML = q.options.map(letter => {
             const selected = answers[q.id] === letter;
             return `
-            <li class="option-item${selected ? ' selected' : ''}" onclick="selectOption(${q.id}, '${letter}')"
-                style="${selected ? 'border-color:var(--primary);background:#27272A;' : ''}">
+            <li class="option-item${selected ? ' selected' : ''}" onclick="selectOption(${q.id}, '${letter}')">
                 <input type="radio" name="q_opt" value="${letter}" ${selected ? 'checked' : ''}>
-                <span><strong>Option ${letter}</strong></span>
+                <span class="opt-letter">${letter}</span>
             </li>`;
         }).join('');
     }
 
     document.getElementById('prevBtn').disabled = index === 0;
     document.getElementById('nextBtn').innerText =
-        index === flatQuestions.length - 1 ? 'Save & Review' : 'Save & Next';
+        index === flatQuestions.length - 1 ? 'Save & review' : 'Save & next';
 
     updatePaletteUI();
     if (window.__warmFrom) window.__warmFrom(index + 1, 3);
@@ -313,13 +312,13 @@ async function saveAnswer(questionId, value) {
         if (!res.ok) throw new Error('save failed');
         if (note) {
             note.innerText = 'Saved';
-            note.style.color = '#A1A1AA';
+            note.classList.remove('stale');
         }
     } catch {
         // Not fatal — the final submit sends every answer again.
         if (note) {
-            note.innerText = 'Offline — answers will be sent on submit';
-            note.style.color = '#F59E0B';
+            note.innerText = 'Offline — answers sent on submit';
+            note.classList.add('stale');
         }
     }
 }
@@ -436,14 +435,14 @@ async function performSubmit(auto) {
             <strong>${data.totalCorrect}</strong> correct ·
             <strong>${data.totalWrong}</strong> incorrect ·
             <strong>${flatQuestions.length - (data.totalAnswered || 0)}</strong> unanswered
-            ${auto ? '<br><span style="color:#F59E0B;">This attempt was submitted automatically.</span>' : ''}`;
+            ${auto ? '<br><strong>This attempt was submitted automatically.</strong>' : ''}`;
         document.getElementById('resultModal').classList.add('active');
 
     } catch (err) {
         console.error('Submission error:', err);
         showToast('Submission failed: ' + err.message);
         isSubmitting = false;
-        if (btn) { btn.disabled = false; btn.innerText = 'Submit Final Test'; }
+        if (btn) { btn.disabled = false; btn.innerText = 'Submit final test'; }
         // Keep the clock running so a retry is still possible before the deadline.
         if (deadline > Date.now()) startTimer();
     }
@@ -476,9 +475,7 @@ function showToast(message) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'arenaToast';
-        toast.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);
-            background:#7F1D1D;color:#FEE2E2;padding:14px 28px;border-radius:8px;
-            box-shadow:0 10px 30px rgba(0,0,0,0.4);z-index:9999;font-weight:600;`;
+        toast.className = 'arena-toast';
         document.body.appendChild(toast);
     }
     toast.innerText = message;

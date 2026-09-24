@@ -14,6 +14,20 @@ let currentSection = 'overview';
 let charts = {};
 let pages = { students: 1, attempts: 1, warnings: 1, questions: 1 };
 
+// Chart.js needs literal colour values, so read the three theme colours off the
+// stylesheet rather than re-declaring a palette that could drift from base.css.
+const CHART = (() => {
+    const css = getComputedStyle(document.documentElement);
+    const read = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    return {
+        surface: read('--surface', '#FFFFFF'),
+        ink:     read('--ink', '#131316'),
+        ink2:    read('--ink-2', '#5A5A61'),
+        rule:    read('--rule', '#D3D3D8'),
+        accent:  read('--accent', '#1A4FBF')
+    };
+})();
+
 // ── Utility ───────────────────────────────────────────────────────────────────
 
 function fmt(v, fallback = '—') {
@@ -76,7 +90,7 @@ function showToast(msg, type = 'success') {
     const c = document.getElementById('toastContainer');
     const t = document.createElement('div');
     t.className = `toast ${type}`;
-    t.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> ${escHtml(msg)}`;
+    t.textContent = msg;
     c.appendChild(t);
     setTimeout(() => t.remove(), 4000);
 }
@@ -88,8 +102,8 @@ async function initAuth() {
     const userRaw = localStorage.getItem('user');
 
     if (!token) {
-        return showAccessWall('🔐', 'Admin Access Required',
-            'You must be logged in with an admin account to access this page.',
+        return showAccessWall('Admin sign-in required',
+            'You must be signed in with an admin account to open this page.',
             true);
     }
 
@@ -102,24 +116,23 @@ async function initAuth() {
         loadOverview(data); // pre-load with data we already fetched
     } catch (err) {
         if (err.status === 403) {
-            return showAccessWall('🚫', 'Access Denied',
+            return showAccessWall('Access denied',
                 'Your account does not have admin privileges. Contact the portal administrator.',
                 true);
         }
         if (err.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            return showAccessWall('⏰', 'Session Expired',
-                'Your session has expired. Please log in again.',
+            return showAccessWall('Session expired',
+                'Your session has expired. Please sign in again.',
                 true);
         }
-        return showAccessWall('❌', 'Connection Error',
+        return showAccessWall('Connection error',
             `Could not connect to the server: ${err.message}`, false);
     }
 }
 
-function showAccessWall(icon, title, msg, showBtn) {
-    document.getElementById('accessIcon').textContent = icon;
+function showAccessWall(title, msg, showBtn) {
     document.getElementById('accessTitle').textContent = title;
     document.getElementById('accessMsg').textContent = msg;
     if (showBtn) {
@@ -164,6 +177,11 @@ function setupApp() {
         if (e.key === 'Enter') loadStudents(1);
     });
 
+    // Below 960px the sidebar is off-canvas, so the topbar carries its toggle.
+    document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+        document.getElementById('adminSidebar').classList.toggle('open');
+    });
+
     // Load tests into dropdown filters
     loadTestsDropdown();
 }
@@ -182,6 +200,9 @@ const sectionTitles = {
 function navigateTo(sec) {
     if (currentSection === sec) return;
     currentSection = sec;
+
+    // Picking a destination closes the off-canvas sidebar on narrow screens
+    document.getElementById('adminSidebar')?.classList.remove('open');
 
     // Update nav active state
     document.querySelectorAll('.nav-item').forEach(n => {
@@ -254,7 +275,7 @@ function loadOverview(data) {
     // Recent Attempts table
     const tbody = document.getElementById('recentAttemptsBody');
     if (!data.recentAttempts.length) {
-        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">📭</span><h3>No attempts yet</h3></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><h3>No attempts yet</h3></div></td></tr>`;
     } else {
         tbody.innerHTML = data.recentAttempts.map(r => `
             <tr>
@@ -277,8 +298,8 @@ function loadOverview(data) {
     const counts  = data.attemptsPerTest.map(t => t.attempt_count);
     const avgs    = data.attemptsPerTest.map(t => parseFloat(t.avg_score) || 0);
 
-    buildBarChart('attemptsChart', labels, counts, 'Attempts', '#6366f1');
-    buildBarChart('avgScoreChart', labels, avgs,   'Avg Score', '#10b981');
+    buildBarChart('attemptsChart', labels, counts, 'Attempts', CHART.accent);
+    buildBarChart('avgScoreChart', labels, avgs,   'Avg Score', CHART.ink);
 }
 
 function buildBarChart(id, labels, data, label, color) {
@@ -294,10 +315,10 @@ function buildBarChart(id, labels, data, label, color) {
             datasets: [{
                 label,
                 data,
-                backgroundColor: color + '55',
+                backgroundColor: color,
                 borderColor: color,
-                borderWidth: 2,
-                borderRadius: 6,
+                borderWidth: 0,
+                borderRadius: 0,
                 borderSkipped: false
             }]
         },
@@ -307,22 +328,23 @@ function buildBarChart(id, labels, data, label, color) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#1a2235',
-                    borderColor: '#6366f1',
-                    borderWidth: 1,
-                    titleColor: '#f1f5f9',
-                    bodyColor: '#94a3b8'
+                    backgroundColor: CHART.ink,
+                    borderColor: CHART.ink,
+                    borderWidth: 0,
+                    titleColor: CHART.surface,
+                    bodyColor: CHART.surface,
+                    displayColors: false
                 }
             },
             scales: {
                 x: {
-                    ticks: { color: '#64748b', font: { size: 11 } },
-                    grid: { color: 'rgba(255,255,255,0.04)' }
+                    ticks: { color: CHART.ink2, font: { size: 11 } },
+                    grid: { display: false }
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: { color: '#64748b', font: { size: 11 } },
-                    grid: { color: 'rgba(255,255,255,0.06)' }
+                    ticks: { color: CHART.ink2, font: { size: 11 } },
+                    grid: { color: CHART.rule }
                 }
             }
         }
@@ -354,7 +376,7 @@ async function loadStudents(page = 1) {
         }
 
         if (!data.students.length) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">👥</span><h3>No students found</h3><p>Try different filters.</p></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>No students found</h3><p>Try different filters.</p></div></td></tr>`;
         } else {
             tbody.innerHTML = data.students.map(s => `
                 <tr>
@@ -369,8 +391,8 @@ async function loadStudents(page = 1) {
                     <td>${fmt(s.best_score, '—')}</td>
                     <td>${fmtDate(s.created_at)}</td>
                     <td>
-                        <button class="btn btn-outline btn-sm btn-icon" title="View Details"
-                            onclick="openStudentDetail(${s.id})">🔍</button>
+                        <button type="button" class="btn btn-outline btn-sm" title="View details"
+                            onclick="openStudentDetail(${s.id})">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -379,7 +401,7 @@ async function loadStudents(page = 1) {
         renderPagination('studentsPagination', data.total, 20, page, loadStudents);
         loadBranchDist(data.branchDist);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:24px;">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -388,7 +410,7 @@ function loadBranchDist(dist) {
     const total = dist.reduce((s, b) => s + b.count, 0);
     const container = document.getElementById('branchDistContainer');
     if (!dist.length) {
-        container.innerHTML = '<p style="color:var(--text-muted)">No data available.</p>';
+        container.innerHTML = '<p class="muted">No data available.</p>';
         return;
     }
     container.innerHTML = dist.map(b => `
@@ -420,11 +442,11 @@ async function openStudentDetail(studentId) {
                 <div class="detail-meta-item"><div class="meta-label">Roll No</div><div class="meta-value">${fmt(s.roll_number)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Branch</div><div class="meta-value">${fmt(s.branch)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Tests Taken</div><div class="meta-value">${data.attempts.length}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Violations</div><div class="meta-value" style="color:${data.violations.length ? '#ef4444' : 'inherit'}">${data.violations.length}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Violations</div><div class="meta-value">${data.violations.length}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Registered</div><div class="meta-value" style="font-size:13px">${fmtDate(s.created_at)}</div></div>
             </div>
 
-            <h4 style="font-size:14px;font-weight:600;margin:16px 0 10px;color:var(--text-secondary)">Attempt History</h4>
+            <h4 class="detail-subhead">Attempt History</h4>
             ${data.attempts.length ? `
             <div class="admin-table-wrap">
                 <table class="admin-table">
@@ -441,10 +463,10 @@ async function openStudentDetail(studentId) {
                         `).join('')}
                     </tbody>
                 </table>
-            </div>` : '<p style="color:var(--text-muted);font-size:13px">No attempts recorded.</p>'}
+            </div>` : '<p class="muted" style="font-size:13px">No attempts recorded.</p>'}
 
             ${data.violations.length ? `
-            <h4 style="font-size:14px;font-weight:600;margin:20px 0 10px;color:#ef4444">⚠️ Violations</h4>
+            <h4 class="detail-subhead">Violations</h4>
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead><tr><th>Test</th><th>Type</th><th>Count</th><th>Auto-Submitted</th><th>Date</th></tr></thead>
@@ -463,7 +485,7 @@ async function openStudentDetail(studentId) {
             </div>` : ''}
         `;
     } catch (e) {
-        content.innerHTML = `<p style="color:#ef4444">Error loading student: ${escHtml(e.message)}</p>`;
+        content.innerHTML = `<p class="notice notice-alert">Error loading student: ${escHtml(e.message)}</p>`;
     }
 }
 
@@ -480,7 +502,7 @@ async function loadTests() {
     try {
         const data = await apiFetch('/tests');
         if (!data.tests.length) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">📝</span><h3>No tests found</h3></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>No tests found</h3></div></td></tr>`;
         } else {
             tbody.innerHTML = data.tests.map(t => `
                 <tr>
@@ -499,7 +521,7 @@ async function loadTests() {
             `).join('');
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:24px;">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -518,7 +540,7 @@ async function loadAttempts(page = 1) {
         const data = await apiFetch(`/attempts?${params}`);
 
         if (!data.attempts.length) {
-            tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><span class="empty-icon">📋</span><h3>No attempts found</h3></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><h3>No attempts found</h3></div></td></tr>`;
         } else {
             tbody.innerHTML = data.attempts.map(a => `
                 <tr>
@@ -534,11 +556,11 @@ async function loadAttempts(page = 1) {
                     </td>
                     <td><strong>${fmtScore(a.score)}</strong> / ${fmtScore(a.max_score)}</td>
                     <td>${fmtTime(a.time_taken_seconds)}</td>
-                    <td>${a.has_violation ? '<span class="badge badge-danger">⚠️ Yes</span>' : '<span class="badge badge-neutral">—</span>'}</td>
+                    <td>${a.has_violation ? '<span class="badge badge-danger">Yes</span>' : '<span class="badge badge-neutral">—</span>'}</td>
                     <td>${fmtDate(a.created_at)}</td>
                     <td>
-                        <button class="btn btn-outline btn-sm btn-icon" title="View Attempt Detail"
-                            onclick="openAttemptDetail(${a.id}, '${a.kind || 'legacy'}')">🔍</button>
+                        <button type="button" class="btn btn-outline btn-sm" title="View attempt detail"
+                            onclick="openAttemptDetail(${a.id}, '${a.kind || 'legacy'}')">View</button>
                     </td>
                 </tr>
             `).join('');
@@ -546,7 +568,7 @@ async function loadAttempts(page = 1) {
 
         renderPagination('attemptsPagination', data.total, 20, page, loadAttempts);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:24px;">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -570,15 +592,15 @@ async function openAttemptDetail(resultId, kind = 'legacy') {
                 <div class="detail-meta-item"><div class="meta-label">Student</div><div class="meta-value" style="font-size:15px">${escHtml(r.student_name)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Roll No</div><div class="meta-value">${fmt(r.roll_number)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Test</div><div class="meta-value" style="font-size:13px">${escHtml(r.test_title)}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Score</div><div class="meta-value" style="color:var(--accent-light)">${r.score}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Correct</div><div class="meta-value" style="color:var(--success)">${correctCount}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Wrong</div><div class="meta-value" style="color:var(--danger)">${wrongCount}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Skipped</div><div class="meta-value" style="color:var(--text-muted)">${skippedCount}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Score</div><div class="meta-value">${r.score}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Correct</div><div class="meta-value">${correctCount}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Wrong</div><div class="meta-value">${wrongCount}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Skipped</div><div class="meta-value">${skippedCount}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Time Taken</div><div class="meta-value">${fmtTime(r.time_taken_seconds)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Submitted</div><div class="meta-value" style="font-size:12px">${fmtDate(r.created_at)}</div></div>
             </div>
 
-            <h4 style="font-size:14px;font-weight:600;margin:16px 0 10px;color:var(--text-secondary)">Question Responses</h4>
+            <h4 class="detail-subhead">Question Responses</h4>
             ${data.questions.map((q, i) => {
                 const cls = q.is_skipped ? 'skipped' : (q.is_correct ? 'correct' : 'wrong');
                 let optLabel = q.student_answer || 'Not Answered';
@@ -595,23 +617,21 @@ async function openAttemptDetail(resultId, kind = 'legacy') {
                         <div class="q-status-dot"></div>
                         <div class="q-text">
                             <strong>Q${i+1}. ${escHtml(truncate(q.question_text, 120))}</strong>
-                            ${q.image_url ? ` <a href="${escHtml(q.image_url)}" target="_blank" rel="noopener"
-                                style="color:var(--accent-light);font-size:12px;text-decoration:underline">view image</a>` : ''}
+                            ${q.image_url ? ` <a href="${escHtml(q.image_url)}" target="_blank" rel="noopener">view image</a>` : ''}
                             <div style="margin-top:4px">
-                                <span style="color:var(--text-muted)">Student: </span>
-                                <span style="color:${q.is_skipped ? 'var(--text-muted)' : (q.is_correct ? 'var(--success)' : 'var(--danger)')}">${escHtml(optLabel)}</span>
-                                ${!q.is_skipped && !q.is_correct ? `<span style="color:var(--text-muted)"> · Correct: <strong style="color:var(--success)">${escHtml(q.correct_answer)}</strong></span>` : ''}
+                                Answered <span class="given">${escHtml(optLabel)}</span>
+                                ${!q.is_skipped && !q.is_correct ? ` · correct: <strong>${escHtml(q.correct_answer)}</strong>` : ''}
                             </div>
                         </div>
                         <div class="q-answer-meta">
                             <span>${escHtml(q.section_name || '—')}</span>
-                            <span style="color:var(--success)">+${q.marks}</span>
+                            <span>+${q.marks}</span>
                         </div>
                     </div>`;
             }).join('')}
         `;
     } catch (e) {
-        content.innerHTML = `<p style="color:#ef4444">Error loading attempt: ${escHtml(e.message)}</p>`;
+        content.innerHTML = `<p class="notice notice-alert">Error loading attempt: ${escHtml(e.message)}</p>`;
     }
 }
 
@@ -641,7 +661,7 @@ async function loadWarnings(page = 1) {
         document.getElementById('warnFiltered').textContent        = data.total;
 
         if (!data.violations.length) {
-            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">✅</span><h3>No violations found</h3><p>No proctoring events match the current filters.</p></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><h3>No violations found</h3><p>No proctoring events match the current filters.</p></div></td></tr>`;
         } else {
             tbody.innerHTML = data.violations.map(v => `
                 <tr>
@@ -662,7 +682,7 @@ async function loadWarnings(page = 1) {
 
         renderPagination('warningsPagination', data.total, 20, page, loadWarnings);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:24px;">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -681,7 +701,7 @@ async function loadQuestions(page = 1) {
         const data = await apiFetch(`/questions?${params}`);
 
         if (!data.questions.length) {
-            tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="empty-icon">🧠</span><h3>No questions found</h3></div></td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><h3>No questions found</h3></div></td></tr>`;
         } else {
             tbody.innerHTML = data.questions.map((q, i) => {
                 const diffClass = {
@@ -691,7 +711,7 @@ async function loadQuestions(page = 1) {
 
                 return `
                     <tr>
-                        <td style="color:var(--text-muted)">${((page - 1) * 30) + i + 1}</td>
+                        <td class="muted">${((page - 1) * 30) + i + 1}</td>
                         <td style="max-width:280px">
                             <span title="${escHtml(q.question_text)}">${escHtml(truncate(q.question_text, 90))}</span>
                         </td>
@@ -710,7 +730,7 @@ async function loadQuestions(page = 1) {
 
         renderPagination('questionsPagination', data.total, 30, page, loadQuestions);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#ef4444;padding:24px;">Error: ${escHtml(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -759,7 +779,7 @@ function renderPagination(containerId, total, limit, currentPage, loadFn) {
         if (p === 1 || p === totalPages || (p >= currentPage - window && p <= currentPage + window)) {
             html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="${loadFn.name}(${p})">${p}</button>`;
         } else if (p === currentPage - window - 1 || p === currentPage + window + 1) {
-            html += `<span class="page-btn" style="pointer-events:none;border:none;color:var(--text-muted)">…</span>`;
+            html += `<span class="page-btn" style="pointer-events:none;border-color:transparent;">…</span>`;
         }
     }
 
