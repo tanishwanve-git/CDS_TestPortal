@@ -673,13 +673,39 @@ mysql -u cds_user -p cds_portal -e "SELECT 1;"
 grep -E '^DB_' .env
 ```
 
-**Timer behaves oddly / students report losing time**
-The countdown is computed on the server from the attempt's `started_at`, so a
-wrong server clock shows up here first.
+**The timer shows 00:00 and the exam submits itself immediately**
+The exam clock is authoritative on the server: it asks MySQL for
+`UNIX_TIMESTAMP(started_at)`, which is time-zone independent, so a database
+server in UTC and an app server in IST agree. If you see a zero clock anyway,
+check in this order:
+
 ```bash
+# 1. Is the server's own clock right? A wrong clock shows up here first.
 timedatectl status
 sudo timedatectl set-ntp true
+
+# 2. Does a fresh attempt really start with a full clock?
+mysql -u cds_user -p cds_portal -e "
+  SELECT id, status, TIMESTAMPDIFF(MINUTE, started_at, NOW()) AS age_minutes
+  FROM Exam_Attempts WHERE status = 'in_progress';"
 ```
+
+Any `in_progress` row older than the exam duration has genuinely expired, and
+because each student gets at most one open attempt per exam, pressing Start just
+resumes that dead attempt. Clear them and the student can begin fresh:
+
+```sql
+DELETE FROM Exam_Attempts WHERE status = 'in_progress';
+```
+
+This cascades to those attempts' questions and leaves submitted attempts alone.
+
+> Historical note: before this was fixed, the countdown was derived by parsing
+> the `started_at` datetime string in Node. MySQL returns that string in *its*
+> session time zone while the driver parses it in *Node's*, so a UTC database
+> with an IST app made every attempt look 5.5 hours old the moment it was
+> created — instant auto-submit. If you ever add new clock logic here, read the
+> epoch column, never the datetime.
 
 **Exam pages load but every API call 404s**
 Almost always the subpath rule in [section 12](#12-deploying-under-a-subpath-mock):

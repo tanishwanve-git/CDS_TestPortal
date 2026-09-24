@@ -38,11 +38,32 @@ function sameSection(a, b) {
     return norm(a) === norm(b);
 }
 
-/** Seconds left before this attempt's deadline (never negative). */
+/**
+ * When this attempt started, as true epoch milliseconds.
+ *
+ * Deliberately NOT `new Date(row.started_at)`. MySQL returns a TIMESTAMP as a
+ * wall-clock string in *its* session time zone, and the driver parses that
+ * string in *Node's* time zone. When the two differ — a UTC database server
+ * with the app running in IST is the usual case — every attempt looks hours
+ * old the moment it is created, and the exam auto-submits before the student
+ * can answer anything. So the queries ask MySQL for `UNIX_TIMESTAMP()`, which
+ * is time-zone independent, and this reads that instead.
+ */
+function startedAtMs(attempt) {
+    const ms = Number(attempt.started_at_ms);
+    if (Number.isFinite(ms) && ms > 0) return ms;
 
+    // No epoch column in this row (an attempt created before this fix, or a
+    // query that didn't select it). Falling back to the parsed datetime risks
+    // the skew above, so treat the attempt as having just started: a clock
+    // that is generous is far better than one that is stuck at zero.
+    console.warn(`Attempt ${attempt.id}: no started_at_ms; assuming it just started.`);
+    return Date.now();
+}
+
+/** Seconds left before this attempt's deadline (never negative). */
 function secondsRemaining(attempt) {
-    const started = new Date(attempt.started_at).getTime();
-    const deadline = started + attempt.duration_minutes * 60 * 1000;
+    const deadline = startedAtMs(attempt) + attempt.duration_minutes * 60 * 1000;
     return Math.max(0, Math.floor((deadline - Date.now()) / 1000));
 }
 
@@ -223,7 +244,8 @@ exports.getAttempt = async (req, res) => {
         const attemptId = parseInt(req.params.attemptId, 10);
 
         const [[attempt]] = await pool.query(
-            `SELECT a.*, e.title, e.code, e.duration_minutes, e.description
+            `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
+                    e.title, e.code, e.duration_minutes, e.description
              FROM Exam_Attempts a JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
             [attemptId, req.user.id]
@@ -340,7 +362,9 @@ exports.submitAttempt = async (req, res) => {
         const { answers = {}, violation_count, auto_submitted } = req.body;
 
         const [[attempt]] = await pool.query(
-            `SELECT a.*, e.duration_minutes FROM Exam_Attempts a
+            `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
+                    e.duration_minutes
+             FROM Exam_Attempts a
              JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
             [attemptId, req.user.id]
@@ -395,7 +419,7 @@ exports.submitAttempt = async (req, res) => {
             updates.push([q.row_id, answered ? String(chosen).slice(0, 255) : null, correct === null ? null : (correct ? 1 : 0), awarded]);
         }
 
-        const elapsed = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
+        const elapsed = Math.floor((Date.now() - startedAtMs(attempt)) / 1000);
         const timeTaken = Math.min(elapsed, attempt.duration_minutes * 60 + SUBMIT_GRACE_SECONDS);
 
         conn = await pool.getConnection();
