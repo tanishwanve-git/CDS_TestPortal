@@ -621,7 +621,10 @@ exports.getTests = async (req, res) => {
                    MAX(a.score) AS max_score,
                    MIN(a.score) AS min_score,
                    (SELECT COUNT(*) FROM Question_Bank qb
-                     WHERE qb.department = e.department AND qb.is_active = 1) AS question_count
+                     WHERE qb.is_active = 1
+                       AND (qb.department = e.department
+                            OR qb.department IN (SELECT s2.source_department FROM Mock_Exam_Sections s2
+                                                  WHERE s2.exam_id = e.id))) AS question_count
             FROM Mock_Exams e
             LEFT JOIN Exam_Attempts a ON a.exam_id = e.id AND a.status = 'submitted'
             WHERE e.is_active = 1

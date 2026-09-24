@@ -80,7 +80,10 @@ exports.listMockExams = async (req, res) => {
                     e.duration_minutes, e.total_questions, e.disciplines,
                     COUNT(DISTINCT s.id) AS section_count,
                     (SELECT COUNT(*) FROM Question_Bank qb
-                      WHERE qb.department = e.department AND qb.is_active = 1) AS bank_size
+                      WHERE qb.is_active = 1
+                        AND (qb.department = e.department
+                             OR qb.department IN (SELECT s2.source_department FROM Mock_Exam_Sections s2
+                                                   WHERE s2.exam_id = e.id))) AS bank_size
              FROM Mock_Exams e
              LEFT JOIN Mock_Exam_Sections s ON s.exam_id = e.id
              WHERE e.is_active = 1
@@ -183,9 +186,11 @@ exports.startAttempt = async (req, res) => {
         for (const section of sections) {
             const sourceSections = toArray(section.source_sections);
 
+            // A section may draw from another department's bank (EE's paper
+            // includes EC and IN sections); NULL means the exam's own bank.
             let sql = `SELECT id, marks, negative_marks FROM Question_Bank
                        WHERE department = ? AND is_active = 1`;
-            const params = [exam.department];
+            const params = [section.source_department || exam.department];
 
             if (sourceSections.length) {
                 sql += ` AND section IN (${sourceSections.map(() => '?').join(',')})`;

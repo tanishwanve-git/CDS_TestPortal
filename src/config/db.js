@@ -169,6 +169,7 @@ async function initTables(pool) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             exam_id INT NOT NULL,
             section_name VARCHAR(150) NOT NULL,
+            source_department VARCHAR(20) NULL,
             source_sections TEXT NULL,
             question_count INT NOT NULL,
             sort_order INT NOT NULL DEFAULT 0,
@@ -223,6 +224,12 @@ async function initTables(pool) {
     } catch (e) { /* already nullable */ }
     try {
         await pool.query('ALTER TABLE Test_Violations ADD COLUMN attempt_id INT NULL;');
+    } catch (e) { /* column already exists */ }
+
+    // Lets a mock-exam section draw from another department's bank. NULL keeps
+    // the old behaviour of drawing from the exam's own department.
+    try {
+        await pool.query('ALTER TABLE Mock_Exam_Sections ADD COLUMN source_department VARCHAR(20) NULL AFTER section_name;');
     } catch (e) { /* column already exists */ }
 
     // Ensure programme & discipline exist on Students table if used

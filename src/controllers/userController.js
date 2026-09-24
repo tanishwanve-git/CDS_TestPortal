@@ -37,15 +37,10 @@ exports.getDashboardData = async (req, res) => {
             ORDER BY r.created_at DESC
         `, [userId]);
 
-        // Get available tests (all tests for now, maybe exclude ones already taken)
-        const [availableTests] = await pool.query(`
-            SELECT t.id, t.title, t.duration_minutes, t.total_questions, t.created_at
-            FROM Tests t
-            WHERE t.id NOT IN (
-                SELECT test_id FROM Test_Results WHERE student_id = ?
-            )
-            ORDER BY t.created_at DESC
-        `, [userId]);
+        // Legacy fixed-paper Tests are no longer offered: students sit the one mock
+        // exam per department instead. Past results above stay visible. The empty
+        // list makes the dashboard hide its "other tests" section.
+        const availableTests = [];
 
         // Mock-exam attempt history (the randomised papers drawn from Question_Bank).
         // Kept separate from `history` above because a mock exam can be re-attempted

@@ -8,20 +8,22 @@
  *
  *     node database/import_question_bank.js              # import everything
  *     node database/import_question_bank.js --dry-run    # validate, touch no DB
- *     node database/import_question_bank.js --only=CE,ME # one or more departments
+ *     node database/import_question_bank.js --only=CE,EE # one or more exams (and the banks they draw from)
  *     node database/import_question_bank.js --reset      # wipe the bank first
  *     node database/import_question_bank.js --verbose    # list every skipped row
  *
  * What it does:
- *   1. Reads every department's metadata.csv named in exam_blueprints.js.
+ *   1. Reads every bank's metadata.csv named in exam_blueprints.js.
  *   2. Drops rows that can't be served to a student — MSQ questions, rows the
  *      bank itself flags unusable, rows with a sentinel/ambiguous answer key, and
  *      rows whose PNG is missing from disk.
- *   3. Upserts what survives into `Question_Bank`, keyed on the image's path so
+ *   3. Verifies every exam section has enough questions to actually fill a paper.
+ *   4. Upserts what survives into `Question_Bank`, keyed on the image's path so
  *      re-running is idempotent and never duplicates a question.
- *   4. Creates/updates one `Mock_Exams` row per department plus its
+ *   5. Creates/updates one `Mock_Exams` row per exam plus its
  *      `Mock_Exam_Sections` blueprint rows.
- *   5. Verifies every section has enough questions to actually fill a paper.
+ *   6. Marks any `Mock_Exams` row no longer listed in the blueprint inactive, so
+ *      retired papers disappear from the dashboard but keep their history.
  *
  * Papers themselves are NOT stored — they are drawn fresh from this bank each
  * time a student starts an attempt (see src/controllers/mockController.js).
@@ -87,14 +89,14 @@ function parseCsv(text) {
 }
 
 // ---------- Row filtering ----------
-function buildQuestionRow(csvRow, dept, stats) {
+function buildQuestionRow(csvRow, bank, stats) {
     const type = (csvRow.question_type || '').trim().toUpperCase();
     const answer = (csvRow.correct_answer || '').trim();
     const relPath = (csvRow.relative_path || '').trim().split('\\').join('/');
 
     const drop = (reason) => {
         stats.skipped[reason] = (stats.skipped[reason] || 0) + 1;
-        if (VERBOSE) stats.skippedRows.push(`${dept.code} ${csvRow.image_filename}: ${reason} (answer="${answer}", type=${type})`);
+        if (VERBOSE) stats.skippedRows.push(`${bank.code} ${csvRow.image_filename}: ${reason} (answer="${answer}", type=${type})`);
         return null;
     };
 
@@ -126,9 +128,9 @@ function buildQuestionRow(csvRow, dept, stats) {
     const isNat = type === 'NAT';
 
     return {
-        department: dept.code,
-        section: (csvRow.section || dept.code).trim(),
-        source_subject: (csvRow.subject || dept.code).trim(),
+        department: bank.code,
+        section: (csvRow.section || bank.code).trim(),
+        source_subject: (csvRow.subject || bank.code).trim(),
         year: (csvRow.year || '').trim() || null,
         source_question_no: parseInt(csvRow.question_no, 10) || null,
         question_type: type,
@@ -185,6 +187,7 @@ const SCHEMA = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         exam_id INT NOT NULL,
         section_name VARCHAR(150) NOT NULL,
+        source_department VARCHAR(20) NULL,
         source_sections TEXT NULL,
         question_count INT NOT NULL,
         sort_order INT NOT NULL DEFAULT 0,
@@ -231,16 +234,28 @@ const SCHEMA = [
 
 // ---------- Main ----------
 async function main() {
-    const departments = blueprints.departments.filter(d => !ONLY || ONLY.includes(d.code));
+    const exams = blueprints.exams.filter(e => !ONLY || ONLY.includes(e.code));
 
-    if (!departments.length) {
-        console.error(`❌ No departments matched --only=${ONLY.join(',')}. Known codes: ${blueprints.departments.map(d => d.code).join(', ')}`);
+    if (!exams.length) {
+        console.error(`❌ No exams matched --only=${ONLY.join(',')}. Known codes: ${blueprints.exams.map(e => e.code).join(', ')}`);
+        process.exit(1);
+    }
+
+    // A section with no `bank` draws from the bank sharing its exam's code.
+    const bankOf = (exam, sec) => sec.bank || exam.code;
+    const neededBanks = new Set(exams.flatMap(e => e.sections.map(s => bankOf(e, s))));
+    const banks = blueprints.banks.filter(b => neededBanks.has(b.code));
+
+    const unknownBanks = [...neededBanks].filter(code => !banks.some(b => b.code === code));
+    if (unknownBanks.length) {
+        console.error(`❌ Exam sections refer to bank(s) not listed in exam_blueprints.js: ${unknownBanks.join(', ')}`);
         process.exit(1);
     }
 
     console.log(`\n📚 CDS Test Portal — question bank import${DRY_RUN ? ' (DRY RUN — no database writes)' : ''}`);
     console.log(`   Bank root: ${blueprints.bankRoot}`);
-    console.log(`   Departments: ${departments.map(d => d.code).join(', ')}\n`);
+    console.log(`   Exams: ${exams.map(e => e.code).join(', ')}`);
+    console.log(`   Banks: ${banks.map(b => b.code).join(', ')}\n`);
 
     if (!fs.existsSync(blueprints.bankRoot)) {
         console.error(`❌ Image bank not found at ${blueprints.bankRoot}`);
@@ -250,42 +265,42 @@ async function main() {
 
     // --- Phase 1: read + validate every CSV before touching the database ---
     const parsed = [];
+    const questionsByBank = {};
     const stats = { skipped: {}, skippedRows: [] };
     let fatal = false;
 
-    for (const dept of departments) {
-        const csvPath = path.join(blueprints.bankRoot, dept.metadata);
+    for (const bank of banks) {
+        const csvPath = path.join(blueprints.bankRoot, bank.metadata);
         if (!fs.existsSync(csvPath)) {
-            console.error(`❌ ${dept.code}: metadata not found at ${csvPath}`);
+            console.error(`❌ ${bank.code}: metadata not found at ${csvPath}`);
             fatal = true;
             continue;
         }
 
         const rows = parseCsv(fs.readFileSync(csvPath, 'utf8'));
-        const questions = rows.map(r => buildQuestionRow(r, dept, stats)).filter(Boolean);
+        const questions = rows.map(r => buildQuestionRow(r, bank, stats)).filter(Boolean);
+        questionsByBank[bank.code] = questions;
+        parsed.push({ bank, questions });
 
-        // Count what each blueprint section can actually draw from.
-        const bySection = {};
-        for (const q of questions) bySection[q.section] = (bySection[q.section] || 0) + 1;
+        console.log(`  bank ${bank.code.padEnd(4)} ${String(rows.length).padStart(5)} rows → ${String(questions.length).padStart(5)} usable`);
+    }
+    console.log('');
 
-        const sectionReport = dept.sections.map(sec => {
+    // Count what each blueprint section can actually draw from.
+    for (const exam of exams) {
+        const totalWanted = exam.sections.reduce((n, s) => n + s.count, 0);
+        console.log(`  exam ${exam.code.padEnd(4)} ${totalWanted} questions across ${exam.sections.length} section${exam.sections.length > 1 ? 's' : ''}`);
+
+        for (const sec of exam.sections) {
+            const bankCode = bankOf(exam, sec);
+            const questions = questionsByBank[bankCode] || [];
             const pool = sec.sourceSections.length
-                ? sec.sourceSections.reduce((n, s) => n + (bySection[s] || 0), 0)
+                ? questions.filter(q => sec.sourceSections.includes(q.section)).length
                 : questions.length;
-            return { ...sec, pool };
-        });
-
-        const totalWanted = dept.sections.reduce((n, s) => n + s.count, 0);
-        const short = sectionReport.filter(s => s.pool < s.count);
-
-        console.log(`  ${dept.code.padEnd(4)} ${String(rows.length).padStart(5)} rows → ${String(questions.length).padStart(5)} usable   (paper: ${totalWanted} questions across ${dept.sections.length} section${dept.sections.length > 1 ? 's' : ''})`);
-        for (const sec of sectionReport) {
-            const flag = sec.pool < sec.count ? ' ❌ NOT ENOUGH QUESTIONS' : '';
-            console.log(`         · ${sec.name.padEnd(38)} draw ${String(sec.count).padStart(2)} from pool of ${String(sec.pool).padStart(5)}${flag}`);
+            const flag = pool < sec.count ? ' ❌ NOT ENOUGH QUESTIONS' : '';
+            if (pool < sec.count) fatal = true;
+            console.log(`         · ${sec.name.padEnd(38)} draw ${String(sec.count).padStart(2)} from ${bankCode.padEnd(4)} pool of ${String(pool).padStart(5)}${flag}`);
         }
-
-        if (short.length) fatal = true;
-        parsed.push({ dept, questions, totalWanted });
     }
 
     const totalSkipped = Object.values(stats.skipped).reduce((a, b) => a + b, 0);
@@ -309,7 +324,10 @@ async function main() {
         process.exit(1);
     }
 
+    const allExamCodes = blueprints.exams.map(e => e.code);
+
     if (DRY_RUN) {
+        console.log(`   Exams not in the blueprint would be marked inactive (only ${allExamCodes.join(', ')} stay visible).`);
         console.log('✅ Dry run complete — everything validates. Re-run without --dry-run to write to the database.\n');
         return;
     }
@@ -327,12 +345,16 @@ async function main() {
 
     try {
         for (const stmt of SCHEMA) await conn.query(stmt);
+        // Databases created before sections could draw from another bank.
+        try {
+            await conn.query('ALTER TABLE Mock_Exam_Sections ADD COLUMN source_department VARCHAR(20) NULL AFTER section_name');
+        } catch (e) { /* column already exists */ }
         console.log('✅ Bank & attempt tables ready');
 
         if (RESET) {
             // Attempts reference Question_Bank; clear them first so the FK holds.
             await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-            for (const code of departments.map(d => d.code)) {
+            for (const code of banks.map(b => b.code)) {
                 await conn.query(
                     `DELETE aq FROM Attempt_Questions aq
                      JOIN Question_Bank qb ON aq.question_id = qb.id
@@ -341,10 +363,10 @@ async function main() {
                 await conn.query('DELETE FROM Question_Bank WHERE department = ?', [code]);
             }
             await conn.query('SET FOREIGN_KEY_CHECKS = 1');
-            console.log(`🧹 Reset: cleared existing bank rows for ${departments.map(d => d.code).join(', ')}`);
+            console.log(`🧹 Reset: cleared existing bank rows for ${banks.map(b => b.code).join(', ')}`);
         }
 
-        for (const { dept, questions, totalWanted } of parsed) {
+        for (const { bank, questions } of parsed) {
             // Insert in batches — 1,900 rows in one statement exceeds max_allowed_packet
             // on a default MySQL install.
             const BATCH = 500;
@@ -384,6 +406,12 @@ async function main() {
                 written += res.affectedRows;
             }
 
+            console.log(`  ✅ bank ${bank.code.padEnd(4)} upserted (${questions.length} questions, ${written} rows touched)`);
+        }
+
+        for (const exam of exams) {
+            const totalWanted = exam.sections.reduce((n, s) => n + s.count, 0);
+
             // Upsert the exam itself.
             await conn.query(
                 `INSERT INTO Mock_Exams (code, department, title, description, duration_minutes, total_questions, disciplines, is_active)
@@ -396,25 +424,36 @@ async function main() {
                     total_questions = VALUES(total_questions),
                     disciplines = VALUES(disciplines),
                     is_active = 1`,
-                [dept.code, dept.code, dept.title, dept.description || null,
-                 dept.durationMinutes, totalWanted, (dept.disciplines || []).join(',')]
+                [exam.code, exam.code, exam.title, exam.description || null,
+                 exam.durationMinutes, totalWanted, (exam.disciplines || []).join(',')]
             );
 
-            const [[exam]] = await conn.query('SELECT id FROM Mock_Exams WHERE code = ?', [dept.code]);
+            const [[row]] = await conn.query('SELECT id FROM Mock_Exams WHERE code = ?', [exam.code]);
 
             // Section blueprint is small and fully derived from the config file, so
             // replace it wholesale rather than diffing.
-            await conn.query('DELETE FROM Mock_Exam_Sections WHERE exam_id = ?', [exam.id]);
-            for (let i = 0; i < dept.sections.length; i++) {
-                const sec = dept.sections[i];
+            await conn.query('DELETE FROM Mock_Exam_Sections WHERE exam_id = ?', [row.id]);
+            for (let i = 0; i < exam.sections.length; i++) {
+                const sec = exam.sections[i];
                 await conn.query(
-                    `INSERT INTO Mock_Exam_Sections (exam_id, section_name, source_sections, question_count, sort_order)
-                     VALUES (?, ?, ?, ?, ?)`,
-                    [exam.id, sec.name, JSON.stringify(sec.sourceSections || []), sec.count, i]
+                    `INSERT INTO Mock_Exam_Sections (exam_id, section_name, source_department, source_sections, question_count, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [row.id, sec.name, bankOf(exam, sec), JSON.stringify(sec.sourceSections || []), sec.count, i]
                 );
             }
 
-            console.log(`  ✅ ${dept.code.padEnd(4)} bank upserted (${questions.length} questions, ${written} rows touched) · exam #${exam.id} with ${dept.sections.length} section(s)`);
+            console.log(`  ✅ exam ${exam.code.padEnd(4)} #${row.id} with ${exam.sections.length} section(s)`);
+        }
+
+        // Retire every exam the blueprint no longer lists. Inactive rather than
+        // deleted: past attempts reference it and must stay reviewable.
+        const [retired] = await conn.query(
+            `UPDATE Mock_Exams SET is_active = 0
+             WHERE is_active = 1 AND code NOT IN (${allExamCodes.map(() => '?').join(',')})`,
+            allExamCodes
+        );
+        if (retired.affectedRows) {
+            console.log(`  🗄️  Retired ${retired.affectedRows} exam(s) no longer in the blueprint (history kept).`);
         }
 
         // Final sanity check straight from the database.
@@ -430,13 +469,13 @@ async function main() {
             console.log(`   ${String(r.department).padEnd(5)} ${String(r.total).padStart(5)} questions  (${r.mcq} MCQ, ${r.nat} NAT)`);
         }
 
-        const [exams] = await conn.query(
+        const [active] = await conn.query(
             `SELECT e.code, e.title, e.total_questions, e.duration_minutes, COUNT(s.id) AS sections
              FROM Mock_Exams e LEFT JOIN Mock_Exam_Sections s ON s.exam_id = e.id
              WHERE e.is_active = 1 GROUP BY e.id ORDER BY e.code`
         );
         console.log('\n🧪 Mock exams available on the portal:');
-        for (const e of exams) {
+        for (const e of active) {
             console.log(`   ${String(e.code).padEnd(5)} ${e.total_questions} Q · ${e.duration_minutes} min · ${e.sections} section(s) — ${e.title}`);
         }
 
