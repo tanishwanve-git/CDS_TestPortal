@@ -497,11 +497,14 @@ exports.getAttemptReview = async (req, res) => {
             return res.status(409).json({ message: 'This attempt has not been submitted yet' });
         }
 
+        // Only what's needed to compute section-wise stats. Question text,
+        // images, options, and per-question answers are intentionally not
+        // selected/returned here, so students cannot access individual
+        // questions or answers after submission -- only section-wise and
+        // overall scores are exposed by this endpoint.
         const [rows] = await pool.query(
-            `SELECT aq.position, aq.section_name, aq.section_order, aq.submitted_answer,
-                    aq.is_correct, aq.marks_awarded,
-                    qb.id AS question_id, qb.image_url, qb.question_type, qb.correct_answer,
-                    qb.answer_min, qb.answer_max, qb.marks, qb.negative_marks, qb.year, qb.section
+            `SELECT aq.section_name, aq.submitted_answer, aq.is_correct, aq.marks_awarded,
+                    qb.marks
              FROM Attempt_Questions aq
              JOIN Question_Bank qb ON qb.id = aq.question_id
              WHERE aq.attempt_id = ?
@@ -510,7 +513,7 @@ exports.getAttemptReview = async (req, res) => {
         );
 
         const sectionStats = {};
-        const questions = rows.map(r => {
+        for (const r of rows) {
             if (!sectionStats[r.section_name]) {
                 sectionStats[r.section_name] = { name: r.section_name, score: 0, maxScore: 0, correct: 0, wrong: 0, skipped: 0 };
             }
@@ -522,29 +525,7 @@ exports.getAttemptReview = async (req, res) => {
             if (!answered) stat.skipped++;
             else if (r.is_correct) stat.correct++;
             else stat.wrong++;
-
-            return {
-                id: r.question_id,
-                position: r.position,
-                section_name: r.section_name,
-                image_url: r.image_url,
-                question_type: r.question_type,
-                options: r.question_type === 'MCQ' ? ['A', 'B', 'C', 'D'] : null,
-                marks: parseFloat(r.marks),
-                negative_marks: parseFloat(r.negative_marks),
-                marks_awarded: parseFloat(r.marks_awarded || 0),
-                studentAnswer: answered ? r.submitted_answer : null,
-                correctAnswer: formatAnswer(r),
-                isCorrect: answered && Boolean(r.is_correct),
-                isWrong: answered && !r.is_correct,
-                isSkipped: !answered,
-                // Provenance line under the question number. The bank's raw section
-                // is worth showing when it adds something (e.g. "GA" inside a flat
-                // paper) but not when it just restates the section already named.
-                source: [r.year, sameSection(r.section, r.section_name) ? null : r.section]
-                    .filter(Boolean).join(' · ')
-            };
-        });
+        }
 
         // How this attempt compares to everyone else's on the same exam.
         const [[avg]] = await pool.query(
@@ -568,7 +549,6 @@ exports.getAttemptReview = async (req, res) => {
                 time_taken_seconds: attempt.time_taken_seconds,
                 submitted_at: attempt.submitted_at
             },
-            questions,
             stats: {
                 totalCorrect: attempt.total_correct,
                 totalWrong: attempt.total_wrong,

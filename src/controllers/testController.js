@@ -155,7 +155,10 @@ exports.submitTest = async (req, res) => {
     }
 };
 
-// Fetch a completed result for review (reveals correct answers)
+// Fetch a completed result for review.
+// IMPORTANT: after submission, students must NOT be able to see individual
+// question text, images, options, or their own per-question answers again.
+// Only section-wise and overall scores are returned.
 exports.getReview = async (req, res) => {
     try {
         const resultId = req.params.resultId;
@@ -176,17 +179,19 @@ exports.getReview = async (req, res) => {
 
         const resultData = results[0];
 
-        // Fetch questions WITHOUT correct answers (as per new requirements)
-        // We will only reveal if they got it wrong, not what the right answer is.
+        // Fetch only what is needed to compute section-wise stats. Question
+        // text, images, options, and correct_answer are intentionally not
+        // selected here so they can never leak into the API response.
         const [questions] = await pool.query(`
-            SELECT q.id, q.question_text, q.image_url, q.options, q.correct_answer, q.question_type, q.marks, q.negative_marks, s.section_name, s.id as section_id
+            SELECT q.id, q.correct_answer, q.question_type, q.marks, q.negative_marks, s.section_name, s.id as section_id
             FROM Questions q
             LEFT JOIN Test_Sections s ON q.section_id = s.id
             WHERE q.test_id = ?
             ORDER BY s.id, q.id
         `, [resultData.test_id]);
 
-        // Fetch the student's submitted answers for this result
+        // Fetch the student's submitted answers for this result (needed only
+        // to compute per-section correctness, never returned to the client)
         const [answerRows] = await pool.query(
             'SELECT answers FROM Test_Result_Answers WHERE result_id = ?',
             [resultId]
@@ -195,30 +200,6 @@ exports.getReview = async (req, res) => {
         const submittedAnswers = answerRows.length > 0
             ? (typeof answerRows[0].answers === 'string' ? JSON.parse(answerRows[0].answers) : answerRows[0].answers)
             : {};
-
-        // Before sending to frontend, we must strip the correct answers from the array
-        // and optionally bundle section-level stats here later
-        const sanitizedQuestions = questions.map(q => {
-            const studentAns = submittedAnswers[q.id];
-            const isCorrect = (q.question_type === 'NAT')
-                ? String(studentAns).trim() === String(q.correct_answer).trim()
-                : studentAns === q.correct_answer;
-
-            return {
-                id: q.id,
-                question_text: q.question_text,
-                image_url: q.image_url,
-                options: q.options,
-                question_type: q.question_type,
-                marks: q.marks,
-                negative_marks: q.negative_marks,
-                section_name: q.section_name,
-                section_id: q.section_id,
-                isCorrect: studentAns ? isCorrect : false,
-                isWrong: studentAns ? !isCorrect : false,
-                studentAnswer: studentAns || null
-            };
-        });
 
         // Compute Statistics
         let totalNegatives = 0;
@@ -257,7 +238,6 @@ exports.getReview = async (req, res) => {
 
         res.json({
             result: resultData,
-            questions: sanitizedQuestions,
             stats: {
                 totalCorrect,
                 totalNegatives,

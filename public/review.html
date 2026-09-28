@@ -61,101 +61,8 @@
 
         .chart-box .chart-canvas-wrap { flex: 1; min-height: 0; position: relative; }
 
-        /* ── Question cards: status carried by the left rule's pattern ──── */
-        .question-review-card {
-            position: relative;
-            border: 1px solid var(--rule);
-            padding: 16px 16px 16px 22px;
-            margin-bottom: 14px;
-        }
-
-        .question-review-card::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-            background: var(--rule);
-        }
-
-        .question-review-card.correct::before { background: var(--ink); }
-
-        .question-review-card.incorrect::before {
-            background: repeating-linear-gradient(135deg,
-                    var(--ink) 0 3px, var(--surface) 3px 6px);
-        }
-
-        .question-review-card.skipped::before { background: var(--surface-3); }
-
-        .q-meta-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-        }
-
-        .q-num { font-size: 13px; font-weight: 700; }
-        .q-section { font-size: 12.5px; color: var(--ink-2); }
-
-        .q-body {
-            font-size: 15px;
-            line-height: 1.6;
-            margin-bottom: 14px;
-        }
-
-        .q-body img {
-            max-width: 100%;
-            max-height: 340px;
-            height: auto;
-            margin-top: 12px;
-            border: 1px solid var(--rule);
-        }
-
-        .options-review { display: flex; flex-direction: column; gap: 6px; }
-
-        .option-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 10px 12px;
-            border: 1px solid var(--rule);
-            font-size: 14px;
-        }
-
-        .option-row img {
-            max-height: 120px;
-            max-width: 100%;
-            height: auto;
-            margin-top: 6px;
-            border: 1px solid var(--rule);
-        }
-
-        /* The option they picked, when right: an ink ring, no colour spent */
-        .option-row.is-student-correct {
-            border-color: var(--ink);
-            box-shadow: inset 0 0 0 1px var(--ink);
-            font-weight: 600;
-        }
-
-        /* The option they picked, when wrong: struck through on a grey fill */
-        .option-row.is-student-wrong {
-            border-color: var(--rule-strong);
-            background: var(--surface-2);
-            text-decoration: line-through;
-        }
-
-        .option-icon {
-            min-width: 14px;
-            font-weight: 700;
-            text-decoration: none;
-            display: inline-block;
-        }
-
         .hidden-answer-note {
-            margin-top: 12px;
+            margin-bottom: 24px;
             font-size: 12.5px;
             color: var(--ink-2);
         }
@@ -223,7 +130,10 @@
         </div>
 
         <div class="loading-state" id="loadingMsg">Loading review data…</div>
-        <div id="questionsContainer"></div>
+        <p class="hidden-answer-note" id="postSubmitNote" style="display:none;">
+            Individual questions and answers are no longer available after submission.
+            Only your section-wise and overall scores are shown below.
+        </p>
     </div>
 
     <script>
@@ -258,38 +168,21 @@
 
         async function loadReview() {
             try {
-                // ── Cache check: serve from localStorage if fresh (< 30 min) ──
-                const CACHE_KEY = `reviewCache_${resultId}`;
-                const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-                let reviewData = null;
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached);
-                        if (Date.now() - parsed.cachedAt < CACHE_TTL) {
-                            reviewData = parsed.data;
-                        } else {
-                            localStorage.removeItem(CACHE_KEY);
-                        }
-                    } catch { localStorage.removeItem(CACHE_KEY); }
-                }
+                // No caching of review data in localStorage: the API only ever
+                // returns section-wise and overall scores now (no question
+                // content or answers), so there's nothing sensitive to guard,
+                // but we still always fetch fresh to reflect the latest stats.
+                const res = await fetch(`${API_BASE}/tests/result/${resultId}/review`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Could not load review');
+                const reviewData = await res.json();
 
-                if (!reviewData) {
-                    const res = await fetch(`${API_BASE}/tests/result/${resultId}/review`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (!res.ok) throw new Error('Could not load review');
-                    reviewData = await res.json();
-                    // Store in cache for subsequent fast loads
-                    try {
-                        localStorage.setItem(CACHE_KEY, JSON.stringify({
-                            cachedAt: Date.now(),
-                            data: reviewData
-                        }));
-                    } catch { /* storage full — skip cache */ }
-                }
+                // Clear out any stale cache from a previous version of this page
+                // that may have stored full question/answer content.
+                try { localStorage.removeItem(`reviewCache_${resultId}`); } catch { }
 
-                const { result, questions, stats } = reviewData;
+                const { result, stats } = reviewData;
 
                 document.getElementById('reviewTitle').innerText = result.title;
                 document.getElementById('scoreBadge').innerText =
@@ -297,81 +190,11 @@
                 document.getElementById('loadingMsg').style.display = 'none';
                 document.getElementById('summaryBar').style.display = 'grid';
                 document.getElementById('chartsContainer').style.display = 'grid';
+                document.getElementById('postSubmitNote').style.display = 'block';
 
                 let correct = stats.totalCorrect;
                 let wrong = stats.totalNegatives;
                 let skipped = result.total_questions - (correct + wrong);
-
-                const container = document.getElementById('questionsContainer');
-                let html = '';
-
-                questions.forEach((q, idx) => {
-                    const options = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
-                    const studentAns = q.studentAnswer;
-
-                    let status = 'skipped';
-                    if (studentAns) {
-                        status = q.isCorrect ? 'correct' : 'incorrect';
-                    }
-
-                    const tagClass = status === 'correct'
-                        ? 'tag tag-solid'
-                        : status === 'incorrect' ? 'tag' : 'tag tag-quiet';
-                    const tagText = status === 'correct'
-                        ? 'Correct'
-                        : status === 'incorrect' ? 'Wrong' : 'Skipped';
-
-                    let optionsHTML = '';
-                    Object.entries(options).forEach(([key, val]) => {
-                        let cls = '';
-                        let icon = '&nbsp;';
-
-                        const isImage = (typeof val === 'string' && val.match(/^(https?:\/\/|\/).*\.(png|jpg|jpeg|gif|webp|svg)$/i));
-                        let displayValue = isImage
-                            ? `<img src="${resolveUrl(val)}" alt="Option ${key}">`
-                            : val;
-
-                        // Highlight only what the student picked. Never reveal the key.
-                        if (key === studentAns) {
-                            if (status === 'correct') {
-                                cls = 'is-student-correct';
-                                icon = '&#10003;';
-                            } else if (status === 'incorrect') {
-                                cls = 'is-student-wrong';
-                                icon = '&#10007;';
-                            }
-                        }
-
-                        optionsHTML += `
-                            <div class="option-row ${cls}">
-                                <span class="option-icon">${icon}</span>
-                                <div><strong>${key}</strong> &nbsp; ${displayValue}</div>
-                            </div>`;
-                    });
-
-                    let qHtml = q.question_text.replace(/\n/g, '<br>');
-                    if (q.image_url && q.image_url.trim() !== '') {
-                        qHtml += `<img src="${resolveUrl(q.image_url)}" alt="Question image">`;
-                    }
-
-                    html += `
-                        <div class="question-review-card ${status}">
-                            <div class="q-meta-row">
-                                <div>
-                                    <span class="q-num">Question ${idx + 1}</span>
-                                    <span class="q-section">&middot; ${escapeHtml(q.section_name)}</span>
-                                </div>
-                                <span class="${tagClass}">${tagText}</span>
-                            </div>
-                            <div class="q-body">${qHtml}</div>
-                            <div class="options-review">${optionsHTML}</div>
-                            ${status === 'incorrect'
-                            ? '<p class="hidden-answer-note">The correct answer is not shown for this paper.</p>'
-                            : ''}
-                        </div>`;
-                });
-
-                container.innerHTML = html;
 
                 document.getElementById('sCorrect').innerText = correct;
                 document.getElementById('sWrong').innerText = wrong;

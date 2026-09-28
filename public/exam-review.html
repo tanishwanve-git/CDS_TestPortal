@@ -50,143 +50,10 @@
             margin-bottom: 32px;
         }
 
-        /* ── Filters ───────────────────────────────────────────────────── */
-        .filters {
-            display: flex;
-            gap: 0;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-            border-bottom: 1px solid var(--rule);
-        }
-
-        .chip {
-            font: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            padding: 8px 14px;
-            margin-bottom: -1px;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            color: var(--ink-2);
-            cursor: pointer;
-        }
-
-        .chip:hover { color: var(--ink); background: var(--surface-2); }
-        .chip.active { color: var(--ink); border-bottom-color: var(--accent); }
-
-        /* ── Question cards ────────────────────────────────────────────────
-           Status is carried by the left rule's fill pattern and by the label,
-           never by hue: solid = correct, hatched = incorrect, pale = skipped. */
-        .q-card {
-            position: relative;
-            border: 1px solid var(--rule);
-            padding: 16px 16px 16px 22px;
-            margin-bottom: 14px;
-        }
-
-        .q-card::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-            background: var(--rule);
-        }
-
-        .q-card.correct::before { background: var(--ink); }
-
-        .q-card.wrong::before {
-            background: repeating-linear-gradient(135deg,
-                    var(--ink) 0 3px, var(--surface) 3px 6px);
-        }
-
-        .q-card.skipped::before { background: var(--surface-3); }
-
-        .q-card-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        .q-num { font-size: 14px; font-weight: 700; }
-
-        .q-meta { font-size: 12.5px; color: var(--ink-2); }
-
-        .q-verdict {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .q-marks-awarded {
+        .post-submit-note {
+            margin-bottom: 24px;
             font-size: 12.5px;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .q-image {
-            display: block;
-            width: 100%;
-            height: auto;
-            border: 1px solid var(--rule);
-            cursor: zoom-in;
-        }
-
-        .answer-row {
-            display: flex;
-            gap: 32px;
-            flex-wrap: wrap;
-            margin-top: 14px;
-            padding-top: 12px;
-            border-top: 1px solid var(--rule);
-        }
-
-        .answer-row .label {
-            display: block;
-            font-size: 10.5px;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
             color: var(--ink-2);
-            margin-bottom: 2px;
-        }
-
-        .answer-row .val {
-            font-size: 15px;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* A struck-through answer reads as wrong without spending a colour */
-        .answer-row .val.is-wrong { text-decoration: line-through; }
-        .answer-row .val.is-blank { color: var(--ink-3); font-weight: 500; }
-
-        .image-lightbox {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 5000;
-            padding: 24px;
-            overflow: auto;
-            background: rgba(19, 19, 22, 0.9);
-            cursor: zoom-out;
-        }
-
-        .image-lightbox.show { display: block; }
-
-        .image-lightbox img {
-            display: block;
-            margin: 0 auto;
-            max-width: 1400px;
-            width: 100%;
-            height: auto;
-            background: var(--surface);
-            padding: 12px;
         }
 
         @media (max-width: 640px) {
@@ -212,10 +79,6 @@
         <div class="loading-state" id="loadingMsg">Loading your attempt…</div>
     </div>
 
-    <div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
-        <img id="lightboxImg" src="" alt="Question, full size">
-    </div>
-
     <script>
         // Requires a trailing slash so a page named /mock*.html can never be
         // mistaken for a /mock subpath deployment.
@@ -226,8 +89,6 @@
         const token = localStorage.getItem('token');
         const attemptId = localStorage.getItem('reviewAttemptId');
 
-        let allQuestions = [];
-        let activeFilter = 'all';
         let examId = null;
 
         document.getElementById('backBtn').onclick = () => {
@@ -249,8 +110,7 @@
                     throw new Error(err.message || 'Could not load this attempt');
                 }
 
-                const { attempt, questions, stats } = await res.json();
-                allQuestions = questions;
+                const { attempt, stats } = await res.json();
                 examId = attempt.exam_id;
 
                 document.getElementById('reviewTitle').innerText = attempt.title;
@@ -315,79 +175,11 @@
                     </div>
                 </section>` : ''}
 
-                <div class="section-head"><h2>Question by question</h2></div>
-                <div class="filters">
-                    <button type="button" class="chip active" data-filter="all" onclick="setFilter('all')">All ${allQuestions.length}</button>
-                    <button type="button" class="chip" data-filter="wrong" onclick="setFilter('wrong')">Incorrect ${stats.totalWrong}</button>
-                    <button type="button" class="chip" data-filter="skipped" onclick="setFilter('skipped')">Unanswered ${stats.totalSkipped}</button>
-                    <button type="button" class="chip" data-filter="correct" onclick="setFilter('correct')">Correct ${stats.totalCorrect}</button>
-                </div>
-                <div id="questionList"></div>
+                <p class="post-submit-note">
+                    Individual questions and answers are no longer available after submission.
+                    Only your section-wise and overall scores are shown above.
+                </p>
             `;
-
-            renderQuestions();
-        }
-
-        function setFilter(filter) {
-            activeFilter = filter;
-            document.querySelectorAll('.chip').forEach(c => {
-                c.classList.toggle('active', c.dataset.filter === filter);
-            });
-            renderQuestions();
-        }
-
-        function renderQuestions() {
-            const list = document.getElementById('questionList');
-            const shown = allQuestions.filter(q =>
-                activeFilter === 'all' ||
-                (activeFilter === 'correct' && q.isCorrect) ||
-                (activeFilter === 'wrong' && q.isWrong) ||
-                (activeFilter === 'skipped' && q.isSkipped)
-            );
-
-            if (!shown.length) {
-                list.innerHTML = '<div class="empty-state"><h3>Nothing in this category</h3></div>';
-                return;
-            }
-
-            list.innerHTML = shown.map(q => {
-                const status = q.isCorrect ? 'correct' : (q.isWrong ? 'wrong' : 'skipped');
-                const label = q.isCorrect ? 'Correct' : (q.isWrong ? 'Incorrect' : 'Not answered');
-                // Solid tag for correct, outlined for incorrect, quiet for blank —
-                // weight and fill do the work that colour would otherwise do.
-                const tagClass = q.isCorrect ? 'tag tag-solid' : (q.isWrong ? 'tag' : 'tag tag-quiet');
-                const src = q.image_url.startsWith('/') ? `${BASE_PATH}${q.image_url}` : q.image_url;
-                const awarded = `${q.marks_awarded > 0 ? '+' : ''}${fmt(q.marks_awarded)}`;
-
-                return `
-                <div class="q-card ${status}">
-                    <div class="q-card-head">
-                        <div>
-                            <span class="q-num">Question ${q.position}</span>
-                            <span class="q-meta">&middot; ${escapeHtml(q.section_name)} &middot; ${q.question_type}${q.source ? ' &middot; ' + escapeHtml(q.source) : ''}</span>
-                        </div>
-                        <span class="q-verdict">
-                            <span class="${tagClass}">${label}</span>
-                            <span class="q-marks-awarded">${awarded}</span>
-                        </span>
-                    </div>
-                    <img class="q-image" src="${src}" alt="Question ${q.position}" onclick="openLightbox('${src}')">
-                    <div class="answer-row">
-                        <div>
-                            <span class="label">Your answer</span>
-                            <span class="val ${q.isWrong ? 'is-wrong' : ''} ${q.isSkipped ? 'is-blank' : ''}">${q.studentAnswer !== null ? escapeHtml(q.studentAnswer) : 'Blank'}</span>
-                        </div>
-                        <div>
-                            <span class="label">Correct answer</span>
-                            <span class="val">${escapeHtml(q.correctAnswer)}</span>
-                        </div>
-                        <div>
-                            <span class="label">Marking</span>
-                            <span class="val">+${fmt(q.marks)} / ${q.negative_marks > 0 ? '−' + fmt(q.negative_marks) : '0'}</span>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
         }
 
         async function startRetake() {
@@ -414,19 +206,6 @@
                 btn.innerText = 'Take again';
             }
         }
-
-        function openLightbox(src) {
-            document.getElementById('lightboxImg').src = src;
-            document.getElementById('imageLightbox').classList.add('show');
-        }
-
-        function closeLightbox() {
-            document.getElementById('imageLightbox').classList.remove('show');
-        }
-
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeLightbox();
-        });
 
         function fmt(value) {
             const n = Number(value);
