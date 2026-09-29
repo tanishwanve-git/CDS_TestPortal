@@ -1,12 +1,36 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+// This deployment always runs in India (Asia/Kolkata, UTC+5:30). Pinning the
+// timezone explicitly here — rather than relying on the app server's and the
+// MySQL server's OS-level clocks happening to agree — is what actually fixes
+// timestamps for good. Without this, mysql2 defaults to `timezone: 'local'`,
+// which parses every DATETIME/TIMESTAMP string MySQL returns as if it were in
+// Node's own local timezone, while MySQL itself writes/reads those columns in
+// whatever timezone its session happens to be in (normally the OS default,
+// SYSTEM, unless set otherwise). When those two don't actually agree — an app
+// server left on UTC while "the deployment" is meant to be IST is an easy way
+// for that to happen unnoticed — every stored timestamp (exam start time,
+// submission time, registration time, etc.) comes out wrong by the offset
+// between them. mockController.js has a whole historical note about exactly
+// this biting the exam countdown clock; `submitted_at`/`created_at` had the
+// same latent bug, just never manifesting as visibly as a dead countdown.
+//
+// Fixing it here, once, for every timestamp column, beats patching one field
+// at a time with a `UNIX_TIMESTAMP(...)` workaround (see mockController.js's
+// `started_at_ms`) every time a new date column is added.
+const TZ_OFFSET = '+05:30'; // Asia/Kolkata
+
 const dbConfig = {
     host: process.env.DB_HOST || '127.0.0.1',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'cds_portal',
-    port: process.env.DB_PORT || 3306
+    port: process.env.DB_PORT || 3306,
+    // Tells mysql2 to treat every DATETIME/TIMESTAMP string it reads or
+    // writes as Asia/Kolkata wall-clock time, instead of guessing from
+    // Node's own process timezone.
+    timezone: TZ_OFFSET
 };
 
 async function createPool() {
@@ -28,6 +52,23 @@ async function createPool() {
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0
+        });
+
+        // The `timezone` option above only controls how the Node driver
+        // parses/formats dates on the client side. MySQL's own NOW() /
+        // CURRENT_TIMESTAMP, and its internal UTC<->session conversion for
+        // TIMESTAMP columns, are governed by the *session's* `time_zone`
+        // variable — which defaults to the server's OS timezone (SYSTEM) and
+        // is otherwise unrelated to anything Node does. Pin every pooled
+        // connection's session to the same offset so the two layers can
+        // never disagree, regardless of what the underlying OS is set to.
+        // NOTE: the 'connection' event hands us the underlying callback-style
+        // Connection (not the promise-wrapped one this file otherwise uses),
+        // so this must be a callback, not `await`/`.then`.
+        pool.on('connection', (conn) => {
+            conn.query(`SET time_zone = '${TZ_OFFSET}';`, (err) => {
+                if (err) console.error('Could not set session time_zone on a new DB connection:', err);
+            });
         });
 
         // Test connection
