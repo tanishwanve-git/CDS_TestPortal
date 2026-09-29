@@ -484,6 +484,20 @@ body {
 
 .violation-box strong { color: var(--ink); }
 
+.violation-countdown-note {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--alert);
+    border: 1px solid var(--alert);
+    padding: 8px 10px;
+    margin-bottom: 16px !important;
+}
+
+.violation-countdown-note strong {
+    color: var(--alert);
+    font-variant-numeric: tabular-nums;
+}
+
 .violation-box button {
     font: inherit;
     font-size: 13.5px;

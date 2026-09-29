@@ -22,14 +22,60 @@ let isSubmitting = false;
 // ---------- Exam Security ----------
 let violationCount = 0;
 
+// A single fullscreen exit / tab switch only shows a warning — it does not by
+// itself submit the test. But a student who dismisses that warning and simply
+// stays outside fullscreen (without triggering another visibilitychange or
+// fullscreenchange event) previously had unlimited time outside the test with
+// no further consequence. This grace timer closes that gap: once out of
+// compliance, the test auto-submits if the student hasn't returned to
+// fullscreen within FULLSCREEN_GRACE_MS, regardless of whether a second
+// discrete violation event ever fires.
+const FULLSCREEN_GRACE_MS = 10000; // 10 seconds
+let graceTimeoutId = null;
+let graceCountdownId = null;
+let graceDeadline = null;
+let autoSubmittedByTimeout = false;
+
+function isCompliant() {
+    return !document.hidden && Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function updateGraceCountdownDisplay() {
+    const el = document.getElementById('violationCountdown');
+    if (!el || !graceDeadline) return;
+    const secsLeft = Math.max(0, Math.ceil((graceDeadline - Date.now()) / 1000));
+    el.innerText = secsLeft;
+}
+
+function startGraceCountdown() {
+    if (graceTimeoutId) return; // already counting down towards an earlier deadline
+    graceDeadline = Date.now() + FULLSCREEN_GRACE_MS;
+    updateGraceCountdownDisplay();
+    graceCountdownId = setInterval(updateGraceCountdownDisplay, 250);
+    graceTimeoutId = setTimeout(() => {
+        if (isSubmitting || isCompliant()) return;
+        autoSubmittedByTimeout = true;
+        removeSecurityListeners();
+        performSubmit();
+    }, FULLSCREEN_GRACE_MS);
+}
+
+function stopGraceCountdown() {
+    if (graceTimeoutId) { clearTimeout(graceTimeoutId); graceTimeoutId = null; }
+    if (graceCountdownId) { clearInterval(graceCountdownId); graceCountdownId = null; }
+    graceDeadline = null;
+}
+
 function handleViolation() {
     if (isSubmitting) return;
     violationCount++;
     if (violationCount === 1) {
         // Show centered warning modal with blur
         document.getElementById('violationOverlay').classList.add('show');
+        startGraceCountdown();
     } else {
         // Auto-submit on 2nd violation
+        stopGraceCountdown();
         removeSecurityListeners();
         performSubmit();
     }
@@ -40,13 +86,19 @@ function dismissWarning() {
 }
 
 function onVisibilityChange() {
-    if (document.hidden) handleViolation();
+    if (document.hidden) {
+        handleViolation();
+    } else if (isCompliant()) {
+        stopGraceCountdown();
+    }
 }
 
 function onFullscreenChange() {
     // Fire only when fullscreen is EXITED (not when entering)
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         handleViolation();
+    } else if (isCompliant()) {
+        stopGraceCountdown();
     }
 }
 
@@ -54,6 +106,7 @@ function removeSecurityListeners() {
     document.removeEventListener('visibilitychange', onVisibilityChange);
     document.removeEventListener('fullscreenchange', onFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+    stopGraceCountdown();
 }
 
 function attachSecurityListeners() {
@@ -451,7 +504,7 @@ async function performSubmit() {
                 answers: userAnswers,
                 time_taken_seconds: totalTimeTaken,
                 violation_count: violationCount,
-                auto_submitted: isSubmitting && violationCount >= 2
+                auto_submitted: isSubmitting && (violationCount >= 2 || autoSubmittedByTimeout)
             })
         });
 
