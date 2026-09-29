@@ -3,6 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- Apply a saved theme choice before anything paints, so there's no
+         flash of the wrong theme. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('theme');
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) { /* no storage access — falls back to prefers-color-scheme */ }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,6 +29,7 @@
         </div>
         <div class="header-actions">
             <span class="header-user" id="userNameHeader">Student</span>
+            <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme"></button>
             <button type="button" class="btn btn-outline btn-sm" id="adminConsoleBtn" style="display:none;">Admin
                 console</button>
             <button type="button" class="btn btn-danger btn-sm" id="logoutBtn">Sign out</button>
@@ -152,6 +163,7 @@
         </div>
     </div>
 
+    <script src="js/theme.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 

@@ -3,6 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- Apply a saved theme choice before anything paints, so there's no
+         flash of the wrong theme. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('theme');
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) { /* no storage access — falls back to prefers-color-scheme */ }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mock Exam | CDS Test Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -136,6 +146,7 @@
         </div>
     </div>
 
+    <script src="js/theme.js"></script>
     <script src="js/exam-arena.js"></script>
 </body>
 

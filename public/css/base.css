@@ -46,6 +46,76 @@
 
     --page-max: 1180px;
     --header-h: 56px;
+
+    /* Lets native controls (scrollbars, checkboxes, etc.) render light by
+       default; the dark blocks below switch this to dark. */
+    color-scheme: light;
+}
+
+/* ── Dark theme ────────────────────────────────────────────────────────
+   Same three-colour system, inverted: near-black surfaces, near-white ink,
+   and the accent/alert hues lightened so they still meet contrast against
+   a dark background. Every other stylesheet reads these same custom
+   properties, so nothing outside this file needs to know a dark theme
+   exists.
+
+   Two ways in:
+     · No explicit choice saved (no [data-theme] attribute) → follow the
+       OS/browser's prefers-color-scheme.
+     · An explicit choice saved by the theme toggle (js/theme.js writes
+       [data-theme="dark"|"light"] on <html> before first paint) always
+       wins over the OS preference.
+   ------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --surface:       #121214;
+        --surface-2:     #1A1A1D;
+        --surface-3:     #242428;
+
+        --ink:           #EDEDEF;
+        --ink-2:         #A8A8B0;
+        --ink-3:         #74747C;
+
+        --rule:          #2C2C31;
+        --rule-strong:   #3D3D44;
+
+        --accent:        #6D93E8;
+        --accent-dark:   #547BD1;
+        --accent-wash:   #17223B;
+
+        --alert:         #E2685A;
+        --alert-dark:    #C94B3C;
+        --alert-wash:    #3B1714;
+
+        --ink-strong:    #FFFFFF;
+
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --surface:       #121214;
+    --surface-2:     #1A1A1D;
+    --surface-3:     #242428;
+
+    --ink:           #EDEDEF;
+    --ink-2:         #A8A8B0;
+    --ink-3:         #74747C;
+
+    --rule:          #2C2C31;
+    --rule-strong:   #3D3D44;
+
+    --accent:        #6D93E8;
+    --accent-dark:   #547BD1;
+    --accent-wash:   #17223B;
+
+    --alert:         #E2685A;
+    --alert-dark:    #C94B3C;
+    --alert-wash:    #3B1714;
+
+    --ink-strong:    #FFFFFF;
+
+    color-scheme: dark;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────── */
@@ -428,6 +498,37 @@ select {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ── Theme toggle ──────────────────────────────────────────────────────
+   Cycles Light → Dark → Match system, in that order. js/theme.js wires the
+   click handler and keeps the icon/title in sync; this is just the shell,
+   sized and bordered like the other outline buttons so it drops into any
+   header without needing its own layout rules. */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.theme-toggle:hover { background: var(--surface-2); }
+
+/* For pages with no header chrome to drop the button into (the sign-in
+   page, the exam arenas). */
+.theme-toggle-floating {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
 }
 
 /* ── Page shell ────────────────────────────────────────────────────── */

@@ -3,6 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- Apply a saved theme choice before anything paints, so there's no
+         flash of the wrong theme. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('theme');
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) { /* no storage access — falls back to prefers-color-scheme */ }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Console | CDS Test Portal</title>
     <meta name="description"
@@ -82,6 +92,7 @@
                 <div class="topbar-actions">
                     <button type="button" class="btn btn-outline btn-sm sidebar-toggle" id="sidebarToggle"
                         aria-label="Toggle navigation">Menu</button>
+                    <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme"></button>
                     <a href="dashboard.html" class="btn btn-outline btn-sm">Student portal</a>
                     <button type="button" class="btn btn-outline btn-sm" id="refreshBtn">Refresh</button>
                 </div>
@@ -748,6 +759,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/theme.js"></script>
     <script src="js/admin.js"></script>
 </body>
 
