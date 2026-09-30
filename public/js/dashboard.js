@@ -93,8 +93,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         allMockExams = mockRes.ok ? (await mockRes.json()).exams : [];
 
         // ---------- Stats ----------
-        if (testsTakenEl) testsTakenEl.innerText = history.length + mockHistory.length;
-        if (testsRemainingEl) testsRemainingEl.innerText = allMockExams.length;
+        // "Taken" / "Available" is meant to read as a partition of the
+        // published exams — how many the student has covered at least once
+        // vs. how many they haven't touched yet. Mock exams allow unlimited
+        // re-attempts (by design — see listMockExams' `attempts` count per
+        // exam), so counting mockHistory.length here previously counted every
+        // individual re-attempt as another "taken" exam: re-attempting the
+        // same exam 5 times inflated "Taken" by 5, while "Available" never
+        // moved at all (it was just the flat count of published exams).
+        // Counting distinct exams instead means a re-attempt changes neither
+        // number, since that exam was already on the "taken" side of the
+        // split from its first attempt.
+        const untriedMockCount = allMockExams.filter(e => !(e.attempts > 0)).length;
+        const takenMockCount = allMockExams.length - untriedMockCount;
+        if (testsTakenEl) testsTakenEl.innerText = takenMockCount + history.length;
+        if (testsRemainingEl) testsRemainingEl.innerText = untriedMockCount + availableTests.length;
 
         // ---------- Mock exam cards ----------
         if (mockGrid) {
