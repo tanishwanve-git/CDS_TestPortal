@@ -846,33 +846,63 @@ exports.getWarnings = async (req, res) => {
         const { test_id, student_id, auto_submitted, page = 1, limit = 20 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
+        // `test_id` from the filter dropdown is prefixed by kind ("legacy:2" /
+        // "mock:3"), the same convention getTestsList/getAttempts use — this
+        // was previously compared as-is against v.test_id, a numeric column, so
+        // the prefixed string never matched anything and the filter silently
+        // did nothing. A mock-exam violation also has no row in Tests at all
+        // (v.test_id is NULL, it points at an attempt instead), so filtering
+        // "by test" for that half has to go through the Exam_Attempts /
+        // Mock_Exams join, not v.test_id.
+        const filter = String(test_id || '');
+        const filterKind = filter.includes(':') ? filter.split(':')[0] : null;
+        const filterId = filter.includes(':') ? filter.split(':')[1] : filter;
+
         let where = 'WHERE 1=1';
         const params = [];
 
-        if (test_id) { where += ' AND v.test_id = ?'; params.push(test_id); }
+        if (filter) {
+            if (filterKind === 'mock') {
+                where += ' AND e.id = ?';
+                params.push(filterId);
+            } else if (filterKind === 'legacy') {
+                where += ' AND v.test_id = ?';
+                params.push(filterId);
+            } else {
+                // Unprefixed id (defensive fallback) — match either side.
+                where += ' AND (v.test_id = ? OR e.id = ?)';
+                params.push(filterId, filterId);
+            }
+        }
         if (student_id) { where += ' AND v.student_id = ?'; params.push(student_id); }
         if (auto_submitted === '1' || auto_submitted === 'true') {
             where += ' AND v.auto_submitted = 1';
         }
 
-        const [[{ total }]] = await pool.query(
-            `SELECT COUNT(*) AS total FROM Test_Violations v ${where}`,
-            params
-        );
-
         // A mock-exam violation has no row in Tests (it points at an attempt
         // instead), so both joins have to be outer or those rows vanish from the
-        // list while still being counted in the totals above.
-        const [violations] = await pool.query(`
-            SELECT v.id, s.name AS student_name, s.roll_number, s.email, s.branch,
-                   COALESCE(t.title, e.title, 'Unknown test') AS test_title,
-                   v.violation_type, v.violation_count,
-                   v.auto_submitted, v.created_at
+        // list while still being counted in the totals above. Both the count and
+        // the row query need the same joins now that the mock-exam filter above
+        // depends on them too.
+        const fromClause = `
             FROM Test_Violations v
             JOIN Students s ON v.student_id = s.id
             LEFT JOIN Tests t ON v.test_id = t.id
             LEFT JOIN Exam_Attempts a ON v.attempt_id = a.id
             LEFT JOIN Mock_Exams e ON a.exam_id = e.id
+        `;
+
+        const [[{ total }]] = await pool.query(
+            `SELECT COUNT(*) AS total ${fromClause} ${where}`,
+            params
+        );
+
+        const [violations] = await pool.query(`
+            SELECT v.id, s.name AS student_name, s.roll_number, s.email, s.branch,
+                   COALESCE(t.title, e.title, 'Unknown test') AS test_title,
+                   v.violation_type, v.violation_count,
+                   v.auto_submitted, v.created_at
+            ${fromClause}
             ${where}
             ORDER BY v.created_at DESC
             LIMIT ? OFFSET ?
@@ -897,70 +927,160 @@ exports.getQuestions = async (req, res) => {
         const { test_id, page = 1, limit = 30 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        let where = test_id ? 'WHERE q.test_id = ?' : '';
-        const params = test_id ? [test_id] : [];
+        // `test_id` from the filter dropdown is prefixed by kind ("legacy:2" /
+        // "mock:3"), the same convention getTestsList/getAttempts use — this
+        // was previously compared as-is against q.test_id, a numeric column,
+        // so the prefixed string never matched anything and the filter
+        // silently returned every legacy question regardless of selection.
+        // Mock exams (randomised papers drawn from Question_Bank) weren't
+        // covered by this endpoint at all, so picking one from the dropdown
+        // always came back empty — that half is added below.
+        const filter = String(test_id || '');
+        const filterKind = filter.includes(':') ? filter.split(':')[0] : null;
+        const filterId = filter.includes(':') ? filter.split(':')[1] : filter;
+        const wantLegacy = !filter || filterKind === 'legacy';
+        const wantMock = !filter || filterKind === 'mock';
 
-        const [[{ total }]] = await pool.query(
-            `SELECT COUNT(*) AS total FROM Questions q ${where}`,
-            params
-        );
+        const annotated = [];
 
-        // For each question, compute attempt count and accuracy from Test_Result_Answers
-        const [questions] = await pool.query(`
-            SELECT q.id, q.question_text, q.question_type, q.marks, q.negative_marks,
-                   q.correct_answer, t.title AS test_title, s.section_name
-            FROM Questions q
-            JOIN Tests t ON q.test_id = t.id
-            LEFT JOIN Test_Sections s ON q.section_id = s.id
-            ${where}
-            ORDER BY q.test_id, q.id
-            LIMIT ? OFFSET ?
-        `, [...params, parseInt(limit), offset]);
+        // ── Legacy fixed-paper questions ────────────────────────────────────
+        if (wantLegacy) {
+            const legacyId = filterKind === 'legacy' ? filterId : (filterKind ? null : filter);
+            const legacyWhere = legacyId ? 'WHERE q.test_id = ?' : '';
+            const legacyParams = legacyId ? [legacyId] : [];
 
-        // Fetch answer data for accuracy computation
-        const [answerRows] = await pool.query(`
-            SELECT tra.answers, tr.test_id
-            FROM Test_Result_Answers tra
-            JOIN Test_Results tr ON tra.result_id = tr.id
-            ${test_id ? 'WHERE tr.test_id = ?' : ''}
-        `, test_id ? [test_id] : []);
+            const [questions] = await pool.query(`
+                SELECT q.id, q.question_text, q.question_type, q.marks, q.negative_marks,
+                       q.correct_answer, t.title AS test_title, s.section_name
+                FROM Questions q
+                JOIN Tests t ON q.test_id = t.id
+                LEFT JOIN Test_Sections s ON q.section_id = s.id
+                ${legacyWhere}
+                ORDER BY q.test_id, q.id
+            `, legacyParams);
 
-        // Build per-question stats
-        const qStats = {}; // { qId: { attempts, correct } }
-        for (const row of answerRows) {
-            const answers = typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers;
-            for (const [qId, ans] of Object.entries(answers)) {
-                if (!qStats[qId]) qStats[qId] = { attempts: 0, correct: 0 };
-                if (ans) {
-                    qStats[qId].attempts++;
-                    // We need the correct answer — find it from questions array
-                    const qDef = questions.find(q => String(q.id) === String(qId));
-                    if (qDef) {
-                        const isCorrect = qDef.question_type === 'NAT'
-                            ? String(ans).trim() === String(qDef.correct_answer).trim()
-                            : ans === qDef.correct_answer;
-                        if (isCorrect) qStats[qId].correct++;
+            if (questions.length) {
+                // Fetch answer data for accuracy computation
+                const [answerRows] = await pool.query(`
+                    SELECT tra.answers
+                    FROM Test_Result_Answers tra
+                    JOIN Test_Results tr ON tra.result_id = tr.id
+                    ${legacyId ? 'WHERE tr.test_id = ?' : ''}
+                `, legacyId ? [legacyId] : []);
+
+                // Build per-question stats
+                const qStats = {}; // { qId: { attempts, correct } }
+                for (const row of answerRows) {
+                    const answers = typeof row.answers === 'string' ? JSON.parse(row.answers) : row.answers;
+                    for (const [qId, ans] of Object.entries(answers)) {
+                        if (!qStats[qId]) qStats[qId] = { attempts: 0, correct: 0 };
+                        if (ans) {
+                            qStats[qId].attempts++;
+                            // We need the correct answer — find it from questions array
+                            const qDef = questions.find(q => String(q.id) === String(qId));
+                            if (qDef) {
+                                const isCorrect = qDef.question_type === 'NAT'
+                                    ? String(ans).trim() === String(qDef.correct_answer).trim()
+                                    : ans === qDef.correct_answer;
+                                if (isCorrect) qStats[qId].correct++;
+                            }
+                        }
                     }
+                }
+
+                for (const q of questions) {
+                    const s = qStats[q.id] || { attempts: 0, correct: 0 };
+                    const accuracy = s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : null;
+                    annotated.push({
+                        id: `legacy-${q.id}`,
+                        question_text: q.question_text,
+                        test_title: q.test_title,
+                        section_name: q.section_name,
+                        question_type: q.question_type,
+                        marks: q.marks,
+                        attempt_count: s.attempts,
+                        correct_count: s.correct,
+                        accuracy_pct: accuracy,
+                        difficulty: accuracy === null ? 'unattempted'
+                            : accuracy >= 70 ? 'easy'
+                            : accuracy >= 40 ? 'medium'
+                            : 'hard'
+                    });
                 }
             }
         }
 
-        const annotated = questions.map(q => {
-            const s = qStats[q.id] || { attempts: 0, correct: 0 };
-            const accuracy = s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : null;
-            return {
-                ...q,
-                attempt_count: s.attempts,
-                correct_count: s.correct,
-                accuracy_pct: accuracy,
-                difficulty: accuracy === null ? 'unattempted'
-                    : accuracy >= 70 ? 'easy'
-                    : accuracy >= 40 ? 'medium'
-                    : 'hard'
-            };
-        });
+        // ── Mock exam question-bank questions ───────────────────────────────
+        // Correctness for these is already computed and stored per-attempt at
+        // submission time (Attempt_Questions.is_correct), so this is a
+        // straight aggregation rather than re-grading like the legacy branch.
+        if (wantMock) {
+            const mockId = filterKind === 'mock' ? filterId : null;
+            const mockWhere = mockId ? 'WHERE a.exam_id = ?' : '';
+            const mockParams = mockId ? [mockId] : [];
 
-        res.json({ total, questions: annotated });
+            const [rows] = await pool.query(`
+                SELECT qb.id AS question_id, qb.question_type, qb.marks,
+                       qb.image_filename, qb.year,
+                       e.title AS test_title,
+                       aq.submitted_answer, aq.is_correct, aq.section_name
+                FROM Attempt_Questions aq
+                JOIN Exam_Attempts a ON aq.attempt_id = a.id AND a.status = 'submitted'
+                JOIN Mock_Exams e ON a.exam_id = e.id
+                JOIN Question_Bank qb ON qb.id = aq.question_id
+                ${mockWhere}
+            `, mockParams);
+
+            const mStats = {}; // { questionId: { meta, attempts, correct } }
+            for (const row of rows) {
+                if (!mStats[row.question_id]) {
+                    mStats[row.question_id] = {
+                        question_type: row.question_type,
+                        marks: row.marks,
+                        // No question text exists for these — the question is a
+                        // PNG. The source filename is the most useful label.
+                        label: `${row.image_filename || ('Question ' + row.question_id)}${row.year ? ` (${row.year})` : ''}`,
+                        test_title: row.test_title,
+                        section_name: row.section_name,
+                        attempts: 0,
+                        correct: 0
+                    };
+                }
+                const answered = row.submitted_answer !== null && row.submitted_answer !== undefined
+                    && String(row.submitted_answer).trim() !== '';
+                if (answered) {
+                    mStats[row.question_id].attempts++;
+                    if (row.is_correct) mStats[row.question_id].correct++;
+                }
+            }
+
+            for (const [qId, s] of Object.entries(mStats)) {
+                const accuracy = s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : null;
+                annotated.push({
+                    id: `mock-${qId}`,
+                    question_text: s.label,
+                    test_title: s.test_title,
+                    section_name: s.section_name,
+                    question_type: s.question_type,
+                    marks: s.marks,
+                    attempt_count: s.attempts,
+                    correct_count: s.correct,
+                    accuracy_pct: accuracy,
+                    difficulty: accuracy === null ? 'unattempted'
+                        : accuracy >= 70 ? 'easy'
+                        : accuracy >= 40 ? 'medium'
+                        : 'hard'
+                });
+            }
+        }
+
+        // Both halves were loaded in full to aggregate correctly, so paginate
+        // here rather than in SQL — same as before for the legacy-only case.
+        annotated.sort((a, b) => (a.test_title || '').localeCompare(b.test_title || '') || (a.id < b.id ? -1 : 1));
+        const total = annotated.length;
+        const questions = annotated.slice(offset, offset + parseInt(limit));
+
+        res.json({ total, questions });
     } catch (error) {
         console.error('Admin Questions Error:', error);
         res.status(500).json({ message: 'Internal Server Error' });
