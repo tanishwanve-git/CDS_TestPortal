@@ -159,6 +159,7 @@ function noteCompliance() {
     outOfCompliance = false;
     stopGraceCountdown();
     dismissWarning();
+    sendHeartbeat(); // resync promptly rather than waiting for the next tick
 }
 
 function onVisibilityChange() {
@@ -177,10 +178,62 @@ function onFullscreenChange() {
     }
 }
 
+// A refresh drops fullscreen and never re-attaches the listeners above until
+// the student chooses to click back in — so noteNonCompliance() never fires,
+// handleViolation() is never called, and nothing stops them sitting outside
+// the exam (switching tabs, browsing elsewhere) for as long as they like.
+// This heartbeat is the backstop for exactly that case: while — and only
+// while — this tab can see it's actually compliant, it pings the server every
+// few seconds. The moment compliance is lost, refresh or not, the pings just
+// stop. If the server goes too long without one, it treats that silence as a
+// violation the instant contact resumes (see logHeartbeat), so a refresh can
+// buy a few seconds but never an unmonitored, unpunished stretch of tab
+// switching.
+const HEARTBEAT_INTERVAL_MS = 5000;
+let heartbeatIntervalId = null;
+
+async function sendHeartbeat() {
+    if (isSubmitting || !isCompliant()) return;
+    try {
+        const res = await fetch(`${API_BASE}/tests/mock/attempt/${attemptId}/heartbeat`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 409) {
+            // The server decided on its own that this attempt is over — it
+            // caught an out-of-compliance gap this tab never saw itself.
+            stopHeartbeat();
+            removeSecurityListeners();
+            isSubmitting = true;
+            localStorage.removeItem('currentAttemptId');
+            localStorage.setItem('reviewAttemptId', attemptId);
+            window.location.href = `${BASE_PATH}/exam-review.html`;
+            return;
+        }
+        if (res.ok) {
+            const data = await res.json();
+            if (typeof data.violation_count === 'number' && data.violation_count > violationCount) {
+                violationCount = data.violation_count;
+            }
+        }
+    } catch { /* offline for a moment — the next tick tries again */ }
+}
+
+function startHeartbeat() {
+    if (heartbeatIntervalId) return;
+    sendHeartbeat();
+    heartbeatIntervalId = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeat() {
+    if (heartbeatIntervalId) { clearInterval(heartbeatIntervalId); heartbeatIntervalId = null; }
+}
+
 function attachSecurityListeners() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     document.addEventListener('fullscreenchange', onFullscreenChange);
     document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    startHeartbeat();
 }
 
 function removeSecurityListeners() {
@@ -188,6 +241,7 @@ function removeSecurityListeners() {
     document.removeEventListener('fullscreenchange', onFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
     stopGraceCountdown();
+    stopHeartbeat();
 }
 
 // ---------- Boot ----------
