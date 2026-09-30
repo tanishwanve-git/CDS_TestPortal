@@ -11,6 +11,7 @@ router.get('/mock', protect, mockController.listMockExams);
 router.post('/mock/:examId/start', protect, mockController.startAttempt);
 router.get('/mock/attempt/:attemptId', protect, mockController.getAttempt);
 router.post('/mock/attempt/:attemptId/answer', protect, mockController.saveAnswer);
+router.post('/mock/attempt/:attemptId/violation', protect, mockController.logViolation);
 router.post('/mock/attempt/:attemptId/submit', protect, mockController.submitAttempt);
 router.get('/mock/attempt/:attemptId/review', protect, mockController.getAttemptReview);
 router.post('/mock/attempt/:attemptId/abandon', protect, mockController.abandonAttempt);

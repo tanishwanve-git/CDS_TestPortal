@@ -83,10 +83,33 @@ function stopGraceCountdown() {
     graceDeadline = null;
 }
 
-function handleViolation() {
+// Violations are persisted to the server the instant they happen (see
+// logViolation on the backend) instead of only reaching it inside the final
+// submit call. Previously violationCount lived purely in this page's memory,
+// so a refresh reset it to 0 — the student could refresh their way out of an
+// impending 2nd-violation auto-submit, or just submit at the end with a
+// clean-looking violation count despite having left fullscreen repeatedly.
+// The server's count is authoritative here: it's what decides whether this
+// is shown as the one warning or treated as the 2nd strike.
+async function handleViolation() {
     if (isSubmitting) return;
-    violationCount++;
-    if (violationCount === 1) {
+
+    let count = violationCount + 1; // optimistic fallback if the request below fails
+    try {
+        const res = await fetch(`${API_BASE}/tests/mock/attempt/${attemptId}/violation`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (typeof data.violation_count === 'number') count = data.violation_count;
+        }
+    } catch { /* offline for a moment — fall back to counting locally */ }
+
+    if (isSubmitting) return; // a submit may have gone through while this was in flight
+    violationCount = count;
+
+    if (violationCount <= 1) {
         document.getElementById('violationOverlay').classList.add('show');
         startGraceCountdown();
     } else {
@@ -191,6 +214,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         attempt = data.attempt;
         sections = data.sections;
+
+        // Restore the true violation count from the server rather than
+        // starting this fresh page back at 0 — see the comment on
+        // handleViolation above for why that matters.
+        violationCount = attempt.violation_count || 0;
 
         // Server-side answers win; the local cache only fills gaps.
         const cached = JSON.parse(sessionStorage.getItem(ANSWERS_KEY) || '{}');
@@ -315,6 +343,22 @@ function updatePaletteUI() {
     });
 }
 
+// Restricts what can end up in a NAT (numerical answer type) field to a
+// valid float: digits, at most one leading '-', at most one '.'. Runs on
+// every keystroke and paste, so free-form text can never be typed or pasted
+// in — previously the field was a plain text input with no restriction at
+// all, only a hint saying "enter a number only".
+function sanitizeNatInput(raw) {
+    let s = String(raw).replace(/[^0-9.\-]/g, '');
+    const negative = s.startsWith('-');
+    s = s.replace(/-/g, '');
+    const dot = s.indexOf('.');
+    if (dot !== -1) {
+        s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+    }
+    return (negative ? '-' : '') + s;
+}
+
 function renderQuestion(index) {
     currentIndex = index;
     const q = flatQuestions[index];
@@ -344,7 +388,17 @@ function renderQuestion(index) {
                 <div class="nat-hint">Numerical answer type — enter a number only, e.g. 12.5 or &minus;3.</div>
             </li>`;
         const input = document.getElementById('natInput');
-        input.addEventListener('input', () => setAnswer(q.id, input.value));
+        input.addEventListener('input', () => {
+            const cursor = input.selectionStart;
+            const before = input.value;
+            const sanitized = sanitizeNatInput(before);
+            if (sanitized !== before) {
+                input.value = sanitized;
+                const newPos = Math.max(0, cursor - (before.length - sanitized.length));
+                input.setSelectionRange(newPos, newPos);
+            }
+            setAnswer(q.id, input.value);
+        });
     } else {
         list.innerHTML = q.options.map(letter => {
             const selected = answers[q.id] === letter;

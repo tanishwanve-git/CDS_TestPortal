@@ -261,6 +261,24 @@ exports.getAttempt = async (req, res) => {
             return res.status(409).json({ message: 'This attempt has already been submitted', attemptId });
         }
 
+        // A page refresh drops the arena's in-memory violation count along
+        // with it, so violations are persisted server-side the moment they
+        // happen (see logViolation below) instead of only reaching the
+        // server inside the final /submit call. If this attempt somehow
+        // already has 2+ recorded violations but was never actually
+        // submitted — the student refreshed at exactly the wrong moment and
+        // escaped the client's own auto-submit — finalize it here rather
+        // than handing back the exam paper and letting them keep going.
+        if ((attempt.violation_count || 0) >= 2) {
+            await gradeAndFinalize(pool, attempt, {
+                clientAnswers: {},
+                allowClientAnswers: false,
+                violationCount: attempt.violation_count,
+                autoSubmitted: true
+            });
+            return res.status(409).json({ message: 'This attempt has already been submitted', attemptId });
+        }
+
         const [rows] = await pool.query(
             `SELECT aq.position, aq.section_name, aq.section_order, aq.submitted_answer,
                     qb.id AS question_id, qb.image_url, qb.question_type, qb.marks, qb.negative_marks
@@ -310,7 +328,11 @@ exports.getAttempt = async (req, res) => {
                 started_at: attempt.started_at,
                 // The clock is authoritative on the server, so closing the tab or
                 // reloading cannot buy extra time.
-                seconds_remaining: secondsRemaining(attempt)
+                seconds_remaining: secondsRemaining(attempt),
+                // Likewise authoritative for violations — see logViolation.
+                // The arena restores its counter from this instead of always
+                // starting a refreshed page back at 0.
+                violation_count: attempt.violation_count || 0
             },
             sections,
             savedAnswers
@@ -355,79 +377,66 @@ exports.saveAnswer = async (req, res) => {
     }
 };
 
-// ---------------------------------------------------------------------------
-// POST /api/tests/mock/attempt/:attemptId/submit  — grade and close
-// ---------------------------------------------------------------------------
-exports.submitAttempt = async (req, res) => {
-    const pool = await getPool;
-    let conn;
+/**
+ * Grades an attempt's Attempt_Questions against the Question_Bank answer key
+ * and marks the attempt submitted. Shared by the normal submit flow below and
+ * the server-side lockout in getAttempt above — an attempt whose violation
+ * count already reached 2 gets finalized there even if the student's own tab
+ * never got to call /submit (e.g. they refreshed at exactly that moment).
+ *
+ * `clientAnswers` (a live in-browser answers map) only overrides what was
+ * already autosaved when `allowClientAnswers` is true; the lockout path
+ * passes false so a finalize triggered by getAttempt can only ever use what
+ * was already safely saved to the server, never anything the caller supplies.
+ */
+async function gradeAndFinalize(pool, attempt, { clientAnswers = {}, allowClientAnswers, violationCount, autoSubmitted }) {
+    const [rows] = await pool.query(
+        `SELECT aq.id AS row_id, aq.question_id, aq.submitted_answer,
+                qb.question_type, qb.correct_answer, qb.answer_min, qb.answer_max,
+                qb.marks, qb.negative_marks
+         FROM Attempt_Questions aq
+         JOIN Question_Bank qb ON qb.id = aq.question_id
+         WHERE aq.attempt_id = ?`,
+        [attempt.id]
+    );
 
-    try {
-        const attemptId = parseInt(req.params.attemptId, 10);
-        const { answers = {}, violation_count, auto_submitted } = req.body;
+    let score = 0;
+    let totalAnswered = 0;
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    const updates = [];
 
-        const [[attempt]] = await pool.query(
-            `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
-                    e.duration_minutes
-             FROM Exam_Attempts a
-             JOIN Mock_Exams e ON e.id = a.exam_id
-             WHERE a.id = ? AND a.student_id = ?`,
-            [attemptId, req.user.id]
-        );
-        if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
-        if (attempt.status === 'submitted') {
-            return res.status(409).json({ message: 'This attempt has already been submitted', attemptId });
-        }
+    for (const q of rows) {
+        const clientAnswer = clientAnswers[q.question_id];
+        const chosen = (allowClientAnswers && clientAnswer !== undefined && clientAnswer !== null && String(clientAnswer).trim() !== '')
+            ? String(clientAnswer).trim()
+            : q.submitted_answer;
 
-        const [rows] = await pool.query(
-            `SELECT aq.id AS row_id, aq.question_id, aq.submitted_answer,
-                    qb.question_type, qb.correct_answer, qb.answer_min, qb.answer_max,
-                    qb.marks, qb.negative_marks
-             FROM Attempt_Questions aq
-             JOIN Question_Bank qb ON qb.id = aq.question_id
-             WHERE aq.attempt_id = ?`,
-            [attemptId]
-        );
+        const answered = chosen !== null && chosen !== undefined && String(chosen).trim() !== '';
+        let awarded = 0;
+        let correct = null;
 
-        const expired = secondsRemaining(attempt) <= 0;
-        let score = 0;
-        let totalAnswered = 0;
-        let totalCorrect = 0;
-        let totalWrong = 0;
-        const updates = [];
-
-        for (const q of rows) {
-            // Whatever the client sends wins over the autosaved value, except after
-            // the clock has run out — then only what was already saved counts.
-            const clientAnswer = answers[q.question_id];
-            const chosen = (!expired && clientAnswer !== undefined && clientAnswer !== null && String(clientAnswer).trim() !== '')
-                ? String(clientAnswer).trim()
-                : q.submitted_answer;
-
-            const answered = chosen !== null && chosen !== undefined && String(chosen).trim() !== '';
-            let awarded = 0;
-            let correct = null;
-
-            if (answered) {
-                totalAnswered++;
-                correct = isAnswerCorrect(q, chosen);
-                if (correct) {
-                    awarded = parseFloat(q.marks);
-                    totalCorrect++;
-                } else {
-                    awarded = -parseFloat(q.negative_marks);
-                    totalWrong++;
-                }
-                score += awarded;
+        if (answered) {
+            totalAnswered++;
+            correct = isAnswerCorrect(q, chosen);
+            if (correct) {
+                awarded = parseFloat(q.marks);
+                totalCorrect++;
+            } else {
+                awarded = -parseFloat(q.negative_marks);
+                totalWrong++;
             }
-
-            updates.push([q.row_id, answered ? String(chosen).slice(0, 255) : null, correct === null ? null : (correct ? 1 : 0), awarded]);
+            score += awarded;
         }
 
-        const elapsed = Math.floor((Date.now() - startedAtMs(attempt)) / 1000);
-        const timeTaken = Math.min(elapsed, attempt.duration_minutes * 60 + SUBMIT_GRACE_SECONDS);
+        updates.push([q.row_id, answered ? String(chosen).slice(0, 255) : null, correct === null ? null : (correct ? 1 : 0), awarded]);
+    }
 
-        conn = await pool.getConnection();
+    const elapsed = Math.floor((Date.now() - startedAtMs(attempt)) / 1000);
+    const timeTaken = Math.min(elapsed, attempt.duration_minutes * 60 + SUBMIT_GRACE_SECONDS);
+
+    const conn = await pool.getConnection();
+    try {
         await conn.beginTransaction();
 
         for (const [rowId, answer, correct, awarded] of updates) {
@@ -444,37 +453,116 @@ exports.submitAttempt = async (req, res) => {
                  auto_submitted = ?, submitted_at = NOW()
              WHERE id = ?`,
             [score, totalAnswered, totalCorrect, totalWrong, timeTaken,
-             parseInt(violation_count, 10) || 0, auto_submitted ? 1 : 0, attemptId]
+             violationCount, autoSubmitted ? 1 : 0, attempt.id]
         );
 
         // Keep the existing proctoring log working for mock attempts too.
-        const violations = parseInt(violation_count, 10) || 0;
-        if (violations > 0) {
+        if (violationCount > 0) {
             await conn.query(
                 `INSERT INTO Test_Violations (student_id, test_id, attempt_id, result_id, violation_type, violation_count, auto_submitted)
                  VALUES (?, NULL, ?, NULL, 'tab_switch_or_fullscreen_exit', ?, ?)`,
-                [req.user.id, attemptId, violations, auto_submitted ? 1 : 0]
+                [attempt.student_id, attempt.id, violationCount, autoSubmitted ? 1 : 0]
             );
         }
 
         await conn.commit();
+    } catch (err) {
+        try { await conn.rollback(); } catch { /* connection already gone */ }
+        throw err;
+    } finally {
+        conn.release();
+    }
+
+    return { score, maxScore: parseFloat(attempt.max_score), totalAnswered, totalCorrect, totalWrong };
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/tests/mock/attempt/:attemptId/violation — persist a proctoring
+// violation the instant it happens.
+//
+// Previously violation_count only ever reached the server inside the final
+// /submit call, so in the meantime it lived purely in a page-scoped JS
+// variable. A refresh reset that variable to 0 — the exam paper, saved
+// answers and remaining time all survive a refresh by design (so a crashed
+// tab doesn't lose an honest attempt), but the violation count silently did
+// not. A student about to be auto-submitted for a 2nd violation, or who
+// simply wanted a clean-looking proctoring record, could refresh and carry
+// on with no violation on record at all. This writes every violation to
+// Exam_Attempts the moment it's detected, so the count survives a refresh
+// (or a closed tab) and getAttempt/submitAttempt above trust the server's
+// number, not whatever the client happens to send.
+// ---------------------------------------------------------------------------
+exports.logViolation = async (req, res) => {
+    try {
+        const pool = await getPool;
+        const attemptId = parseInt(req.params.attemptId, 10);
+
+        const [result] = await pool.query(
+            `UPDATE Exam_Attempts SET violation_count = violation_count + 1
+             WHERE id = ? AND student_id = ? AND status = 'in_progress'`,
+            [attemptId, req.user.id]
+        );
+        if (!result.affectedRows) {
+            return res.status(404).json({ message: 'Attempt not found or already submitted' });
+        }
+
+        const [[row]] = await pool.query(
+            'SELECT violation_count FROM Exam_Attempts WHERE id = ?', [attemptId]
+        );
+        res.json({ violation_count: row.violation_count });
+    } catch (error) {
+        console.error('Log Violation Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/tests/mock/attempt/:attemptId/submit  — grade and close
+// ---------------------------------------------------------------------------
+exports.submitAttempt = async (req, res) => {
+    try {
+        const pool = await getPool;
+        const attemptId = parseInt(req.params.attemptId, 10);
+        const { answers = {}, violation_count, auto_submitted } = req.body;
+
+        const [[attempt]] = await pool.query(
+            `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
+                    e.duration_minutes
+             FROM Exam_Attempts a
+             JOIN Mock_Exams e ON e.id = a.exam_id
+             WHERE a.id = ? AND a.student_id = ?`,
+            [attemptId, req.user.id]
+        );
+        if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+        if (attempt.status === 'submitted') {
+            return res.status(409).json({ message: 'This attempt has already been submitted', attemptId });
+        }
+
+        const expired = secondsRemaining(attempt) <= 0;
+
+        // The server's own persisted count (bumped live by logViolation) is
+        // authoritative — a client that was tampered with, or one that just
+        // missed a beat, should never be able to report FEWER violations than
+        // the server already recorded.
+        const clientViolationCount = parseInt(violation_count, 10) || 0;
+        const finalViolationCount = Math.max(attempt.violation_count || 0, clientViolationCount);
+
+        const graded = await gradeAndFinalize(pool, attempt, {
+            clientAnswers: answers,
+            allowClientAnswers: !expired,
+            violationCount: finalViolationCount,
+            autoSubmitted: Boolean(auto_submitted) || finalViolationCount >= 2
+        });
 
         res.json({
             message: 'Attempt submitted and graded successfully',
             attemptId,
-            score,
-            maxScore: parseFloat(attempt.max_score),
-            totalAnswered,
-            totalCorrect,
-            totalWrong
+            ...graded
         });
 
     } catch (error) {
-        if (conn) { try { await conn.rollback(); } catch { /* connection already gone */ } }
         console.error('Submit Attempt Error:', error);
         res.status(500).json({ message: 'Internal Server Error' });
-    } finally {
-        if (conn) conn.release();
     }
 };
 
