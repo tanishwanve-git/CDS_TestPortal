@@ -85,20 +85,58 @@ function dismissWarning() {
     document.getElementById('violationOverlay').classList.remove('show');
 }
 
+// Re-requests fullscreen from the "Go to fullscreen" button. Compliance is
+// only ever confirmed by the resulting fullscreenchange event (see
+// noteCompliance below) — this does not hide the warning itself, so a
+// blocked or dismissed browser prompt correctly leaves the countdown running.
+async function goFullscreen() {
+    try {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    } catch { /* blocked — overlay stays up, grace timer keeps running */ }
+}
+
+// Exiting fullscreen fires both a fullscreenchange AND a visibilitychange
+// event in most browsers, and a single exit can also briefly toggle
+// document.hidden mid-transition (e.g. pressing the OS/browser fullscreen key
+// instead of using the in-page button). Without this guard each of those
+// events called handleViolation() independently, so one real exit could
+// register as two violations and auto-submit almost immediately — long
+// before the 10-second grace period the student was shown. outOfCompliance
+// makes violation detection edge-triggered: only the transition FROM
+// compliant TO non-compliant counts as a new violation; everything else
+// while already out of compliance is a no-op, and returning to compliance
+// always just clears the grace timer.
+let outOfCompliance = false;
+
+function noteNonCompliance() {
+    if (outOfCompliance) return; // still the same episode — not a new violation
+    outOfCompliance = true;
+    handleViolation();
+}
+
+function noteCompliance() {
+    if (!outOfCompliance) return;
+    outOfCompliance = false;
+    stopGraceCountdown();
+    dismissWarning();
+}
+
 function onVisibilityChange() {
     if (document.hidden) {
-        handleViolation();
+        noteNonCompliance();
     } else if (isCompliant()) {
-        stopGraceCountdown();
+        noteCompliance();
     }
 }
 
 function onFullscreenChange() {
     // Fire only when fullscreen is EXITED (not when entering)
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        handleViolation();
+        noteNonCompliance();
     } else if (isCompliant()) {
-        stopGraceCountdown();
+        noteCompliance();
     }
 }
 
