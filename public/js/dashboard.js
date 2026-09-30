@@ -28,6 +28,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ---------- Profile from localStorage (instant render) ----------
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    // A head of department with no student account has nothing to see here;
+    // the console is their home page.
+    if (user.console_only) {
+        window.location.href = `${BASE_PATH}/admin`;
+        return;
+    }
+
     const displayName = user.name || 'Student';
 
     if (studentNameEl) studentNameEl.innerText = displayName;
@@ -59,19 +67,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ---------- Admin Console Button Check ----------
-    // Silently probe the admin API — if the JWT is whitelisted as admin,
-    // reveal the "Admin console" button in the header.
+    // Silently probe the admin API — if the JWT belongs to an admin or a head
+    // of department, reveal the console button in the header.
     const adminConsoleBtn = document.getElementById('adminConsoleBtn');
     if (adminConsoleBtn) {
-        fetch(`${API_BASE}/admin/overview`, {
+        fetch(`${API_BASE}/admin/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
-        }).then(res => {
-            if (res.ok) {
-                adminConsoleBtn.style.display = 'inline-flex';
-                adminConsoleBtn.addEventListener('click', () => {
-                    window.location.href = `${BASE_PATH}/admin`;
-                });
-            }
+        }).then(res => (res.ok ? res.json() : null)).then(me => {
+            if (!me) return;
+            adminConsoleBtn.textContent = me.role === 'hod' ? 'HOD console' : 'Admin console';
+            adminConsoleBtn.style.display = 'inline-flex';
+            adminConsoleBtn.addEventListener('click', () => {
+                window.location.href = `${BASE_PATH}/admin`;
+            });
         }).catch(() => {});
     }
 

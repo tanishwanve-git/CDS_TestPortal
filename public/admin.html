@@ -29,9 +29,9 @@
     ══════════════════════════════════════════════════════════════════ -->
     <div class="access-wall" id="accessWall">
         <div class="access-card">
-            <p class="eyebrow">Admin console</p>
+            <p class="eyebrow">Console</p>
             <h2 id="accessTitle">Verifying access…</h2>
-            <p id="accessMsg">Checking your admin privileges.</p>
+            <p id="accessMsg">Checking your access.</p>
             <a href="index.html" class="btn btn-primary" id="accessAction" style="display:none;">Go to sign in</a>
         </div>
     </div>
@@ -46,7 +46,7 @@
             <div class="sidebar-logo">
                 <div class="logo-text">
                     <span>CDS Portal</span>
-                    <span>Admin console</span>
+                    <span id="consoleLabel">Admin console</span>
                 </div>
             </div>
 
@@ -57,6 +57,8 @@
                 <div class="nav-section-label">Manage</div>
                 <div class="nav-item" data-section="students" id="nav-students">Students</div>
                 <div class="nav-item" data-section="allowlist" id="nav-allowlist">Allow list</div>
+                <!-- Admin only: removed from the page for a head of department. -->
+                <div class="nav-item" data-section="departments" id="nav-departments" data-admin-only>Departments &amp; HODs</div>
                 <div class="nav-item" data-section="coverage" id="nav-coverage">Mock coverage</div>
                 <div class="nav-item" data-section="tests" id="nav-tests">Tests</div>
                 <div class="nav-item" data-section="attempts" id="nav-attempts">Attempts</div>
@@ -73,7 +75,7 @@
                     <div class="admin-avatar" id="adminAvatarSidebar">A</div>
                     <div class="admin-info-text">
                         <div class="admin-name" id="adminNameSidebar">Admin</div>
-                        <div class="admin-role">Administrator</div>
+                        <div class="admin-role" id="adminRole">Administrator</div>
                     </div>
                 </div>
                 <button type="button" class="btn btn-danger btn-sm btn-block" id="logoutBtn">Sign out</button>
@@ -93,13 +95,17 @@
                     <button type="button" class="btn btn-outline btn-sm sidebar-toggle" id="sidebarToggle"
                         aria-label="Toggle navigation">Menu</button>
                     <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme"></button>
-                    <a href="dashboard.html" class="btn btn-outline btn-sm">Student portal</a>
+                    <a href="dashboard.html" class="btn btn-outline btn-sm" id="studentPortalLink">Student portal</a>
                     <button type="button" class="btn btn-outline btn-sm" id="refreshBtn">Refresh</button>
                 </div>
             </div>
 
             <!-- PAGE CONTENT -->
             <div class="admin-content">
+
+                <!-- Shown to a head of department: every figure below is
+                     limited to their department's students. -->
+                <div class="notice notice-accent scope-banner" id="scopeBanner" style="display:none;"></div>
 
                 <!-- ══════════════════════════════════════════════
                      OVERVIEW
@@ -494,6 +500,97 @@
                                 </table>
                             </div>
                             <div class="pagination" id="allowPagination"></div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     DEPARTMENTS & HODs (admin only)
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-departments" data-admin-only>
+
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-label">Departments</div>
+                            <div class="stat-value" id="deptTotal">—</div>
+                        </div>
+                        <div class="stat-card alert">
+                            <div class="stat-label">Without a HOD</div>
+                            <div class="stat-value" id="deptNoHod">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">HOD accounts</div>
+                            <div class="stat-value" id="deptHodCount">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Add / edit form, same pattern as the allow list: Edit on a
+                         row fills it and flips the button to "Save changes". -->
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title" id="hodFormTitle">Assign a head of department</div>
+                            <button type="button" class="btn btn-outline btn-sm" id="hodCancelEdit"
+                                style="display:none;" onclick="resetHodForm()">Cancel edit</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <p class="muted" style="font-size:13px; margin:0 0 14px;">
+                                A HOD signs in with their @iitgn.ac.in Google account and gets this console
+                                limited to their department's students: roster, attempts, scores, warnings and
+                                exports, plus the allow list for their department. To give one person several
+                                departments, assign them to each.
+                            </p>
+                            <form class="filter-grid" id="hodForm" style="border-bottom:none; margin-bottom:0;">
+                                <label class="filter-field">
+                                    <span>Department *</span>
+                                    <select class="filter-select" id="hodDepartment" required>
+                                        <option value="">Choose a department</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Name *</span>
+                                    <input type="text" class="filter-input" id="hodName" maxlength="255"
+                                        placeholder="Prof. Full Name" required>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Email *</span>
+                                    <input type="email" class="filter-input" id="hodEmail" maxlength="255"
+                                        placeholder="hod@iitgn.ac.in" required>
+                                </label>
+                                <div class="filter-field filter-actions">
+                                    <button type="submit" class="btn btn-primary btn-sm"
+                                        id="hodSubmitBtn">Assign HOD</button>
+                                    <button type="button" class="btn btn-outline btn-sm"
+                                        onclick="resetHodForm()">Clear</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Departments</div>
+                        </div>
+                        <div class="admin-card-body" style="padding:0;">
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Department</th>
+                                            <th>Students</th>
+                                            <th>Head of department</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="deptTableBody">
+                                        <tr>
+                                            <td colspan="4" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 

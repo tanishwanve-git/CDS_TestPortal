@@ -81,7 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
-                window.location.href = 'dashboard.html';
+                // A head of department with no student account has no
+                // dashboard; the console is their home page.
+                window.location.href = data.user && data.user.console_only ? 'admin' : 'dashboard.html';
             } else {
                 showMessage(data.error || data.message || 'Access Denied: You are not authorized to access this portal.');
             }

@@ -250,6 +250,21 @@ async function initTables(pool) {
             FOREIGN KEY (question_id) REFERENCES Question_Bank(id) ON DELETE CASCADE,
             UNIQUE KEY uq_attempt_position (attempt_id, position),
             KEY idx_attempt (attempt_id)
+        )`,
+        // Heads of department. `department` holds an allowed_students.discipline
+        // value — that is what scopes a HOD's console to their own students. One
+        // person can head several departments (one row each), and a department
+        // can have more than one head.
+        `CREATE TABLE IF NOT EXISTS department_heads (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            department VARCHAR(100) NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            last_login_at DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_head_department (email, department),
+            KEY idx_head_email (email)
         )`
     ];
 

@@ -10,6 +10,9 @@ const subpathMatch = window.location.pathname.match(/^(\/mock[^\/]*)/);
 const API = subpathMatch ? `${subpathMatch[1]}/api/admin` : '/api/admin';
 let token = null;
 let adminUser = null;
+// From /me: { role: 'admin' | 'hod', departments, has_student_account }. The
+// server scopes every response by role; this only decides what to draw.
+let access = null;
 let currentSection = 'overview';
 let charts = {};
 let pages = { students: 1, allowlist: 1, attempts: 1, warnings: 1, questions: 1 };
@@ -102,22 +105,24 @@ async function initAuth() {
     const userRaw = localStorage.getItem('user');
 
     if (!token) {
-        return showAccessWall('Admin sign-in required',
-            'You must be signed in with an admin account to open this page.',
+        return showAccessWall('Sign-in required',
+            'You must be signed in with an admin or head-of-department account to open this page.',
             true);
     }
 
     try {
-        // Validate token by hitting a protected endpoint
-        const data = await apiFetch('/overview');
+        // Learn the role before drawing anything, so a head of department
+        // never sees admin-only navigation, even for a moment.
+        const [me, data] = await Promise.all([apiFetch('/me'), apiFetch('/overview')]);
+        access = me;
 
-        adminUser = userRaw ? JSON.parse(userRaw) : { name: 'Admin', email: '' };
+        adminUser = userRaw ? JSON.parse(userRaw) : { name: me.name || 'Admin', email: me.email };
         setupApp();
         loadOverview(data); // pre-load with data we already fetched
     } catch (err) {
         if (err.status === 403) {
             return showAccessWall('Access denied',
-                'Your account does not have admin privileges. Contact the portal administrator.',
+                'Your account does not have admin or head-of-department access. Contact the portal administrator.',
                 true);
         }
         if (err.status === 401) {
@@ -144,11 +149,12 @@ function showAccessWall(title, msg, showBtn) {
 }
 
 function setupApp() {
+    applyRole();
     document.getElementById('accessWall').style.display = 'none';
     document.getElementById('adminApp').style.display = 'flex';
 
     // Fill admin info in sidebar
-    const name = adminUser?.name || 'Admin';
+    const name = adminUser?.name || access?.name || 'Admin';
     document.getElementById('adminNameSidebar').textContent = name;
     document.getElementById('adminAvatarSidebar').textContent = name.charAt(0).toUpperCase();
 
@@ -182,6 +188,10 @@ function setupApp() {
     document.getElementById('allowSearch')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); loadAllowlist(1); }
     });
+    resetAllowForm();
+
+    // Departments panel (admin only; absent from the page for a HOD).
+    document.getElementById('hodForm')?.addEventListener('submit', submitHodForm);
 
     loadFilterOptions();
 
@@ -194,12 +204,44 @@ function setupApp() {
     loadTestsDropdown();
 }
 
+// A head of department gets the same console, minus the admin-only pages, with
+// a banner saying whose students it covers. Hiding things here is cosmetic —
+// the server scopes every response and refuses the admin-only routes anyway.
+function applyRole() {
+    if (!access.has_student_account) {
+        document.getElementById('studentPortalLink')?.remove();
+    }
+    if (access.role !== 'hod') return;
+
+    document.querySelectorAll('[data-admin-only]').forEach(el => el.remove());
+
+    const depts = access.departments.join(', ');
+    document.title = 'HOD Console | CDS Test Portal';
+    document.getElementById('consoleLabel').textContent = 'HOD console';
+    document.getElementById('adminRole').textContent = 'Head of department';
+
+    const banner = document.getElementById('scopeBanner');
+    banner.textContent = `Showing ${depts} only. Every list, figure and export here covers the students of ` +
+        `${access.departments.length > 1 ? 'your departments' : 'your department'}.`;
+    banner.style.display = 'block';
+
+    // The stock placeholder names a department this HOD may not use.
+    document.getElementById('allowDiscipline').placeholder = access.departments[0];
+
+    sectionTitles.overview[1] = `${depts} at a glance`;
+    sectionTitles.students[1] = 'Mock compliance across your department';
+    sectionTitles.allowlist[1] = 'Who in your department may sign in to the portal';
+    sectionTitles.tests[1] = "Test-level statistics for your department's students";
+    document.getElementById('topbarSubtitle').textContent = sectionTitles.overview[1];
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 const sectionTitles = {
     overview:  ['Overview',  'Real-time portal analytics'],
     students:  ['Students',  'Mock compliance across the whole roster'],
     allowlist: ['Allow list', 'Who is permitted to sign in to the portal'],
+    departments: ['Departments & HODs', 'Who heads each department, and what their console covers'],
     coverage:  ['Mock coverage', 'Who has sat each mock exam, and who has not'],
     tests:     ['Tests',     'Test-level statistics and details'],
     attempts:  ['Attempts',  'Per-student test attempt history'],
@@ -237,6 +279,7 @@ function refreshCurrentSection() {
         case 'overview':  fetchAndLoadOverview(); break;
         case 'students':  loadStudents(pages.students); break;
         case 'allowlist': loadAllowlist(pages.allowlist); break;
+        case 'departments': loadDepartments(); break;
         case 'coverage':  loadCoverage(); break;
         case 'tests':     loadTests(); break;
         case 'attempts':  loadAttempts(pages.attempts); break;
@@ -524,6 +567,11 @@ function resetAllowForm() {
     editingAllowId = null;
     ['allowId', 'allowRoll', 'allowName', 'allowEmail', 'allowProgramme', 'allowDiscipline']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    // A HOD can only add students to their own department; with just one, it
+    // is the only valid answer, so fill it in.
+    if (access?.role === 'hod' && access.departments.length === 1) {
+        document.getElementById('allowDiscipline').value = access.departments[0];
+    }
     document.getElementById('allowFormTitle').textContent = 'Add a student';
     document.getElementById('allowSubmitBtn').textContent = 'Add to allow list';
     document.getElementById('allowCancelEdit').style.display = 'none';
@@ -661,6 +709,168 @@ async function loadAllowlist(page = 1) {
         renderPagination('allowPagination', data.total, ALLOW_LIMIT, page, loadAllowlist);
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="8" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
+    }
+}
+
+// ── Departments & HODs (admin only) ───────────────────────────────────────────
+
+// Rows carry their own data so Edit / Assign need no extra round trip.
+let deptRows = [];
+let hodRows = [];
+// Set while an existing HOD is being edited; null means the form assigns.
+let editingHodId = null;
+
+function resetHodForm() {
+    editingHodId = null;
+    ['hodDepartment', 'hodName', 'hodEmail']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('hodFormTitle').textContent = 'Assign a head of department';
+    document.getElementById('hodSubmitBtn').textContent = 'Assign HOD';
+    document.getElementById('hodCancelEdit').style.display = 'none';
+}
+
+// Keeps whatever was picked when the list reloads after a save.
+function fillHodDepartments() {
+    const el = document.getElementById('hodDepartment');
+    const current = el.value;
+    el.innerHTML = '<option value="">Choose a department</option>' + deptRows
+        .map(d => `<option value="${escHtml(d.department)}">${escHtml(d.department)}</option>`).join('');
+    el.value = current;
+}
+
+function assignHodTo(index) {
+    const dept = deptRows[index];
+    if (!dept) return;
+    resetHodForm();
+    document.getElementById('hodDepartment').value = dept.department;
+    document.getElementById('hodForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('hodName').focus({ preventScroll: true });
+}
+
+function editHod(id) {
+    const hod = hodRows.find(h => h.id === id);
+    if (!hod) return;
+    editingHodId = id;
+    document.getElementById('hodDepartment').value = hod.department;
+    document.getElementById('hodName').value = hod.name || '';
+    document.getElementById('hodEmail').value = hod.email || '';
+    document.getElementById('hodFormTitle').textContent = `Editing ${hod.name}`;
+    document.getElementById('hodSubmitBtn').textContent = 'Save changes';
+    document.getElementById('hodCancelEdit').style.display = 'inline-flex';
+    document.getElementById('hodForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function submitHodForm(e) {
+    e.preventDefault();
+    const val = id => (document.getElementById(id)?.value || '').trim();
+    const body = { department: val('hodDepartment'), name: val('hodName'), email: val('hodEmail') };
+    const btn = document.getElementById('hodSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+        const editing = editingHodId;
+        const data = await apiFetch(editing ? `/hods/${editing}` : '/hods', {
+            method: editing ? 'PUT' : 'POST',
+            body: JSON.stringify(body)
+        });
+        showToast(data.message || 'Saved');
+        resetHodForm();
+        loadDepartments();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = editingHodId ? 'Save changes' : 'Assign HOD';
+    }
+}
+
+async function toggleHod(id, makeActive) {
+    try {
+        await apiFetch(`/hods/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ is_active: makeActive })
+        });
+        showToast(makeActive ? 'HOD access restored' : 'HOD access suspended');
+        loadDepartments();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function removeHod(id) {
+    const hod = hodRows.find(h => h.id === id);
+    const who = hod ? `${hod.name} (${hod.email}) as head of ${hod.department}` : 'this HOD';
+    if (!confirm(`Remove ${who}?\n\nThey will lose console access for this department straight away.`)) return;
+    try {
+        const data = await apiFetch(`/hods/${id}`, { method: 'DELETE' });
+        showToast(data.message || 'Removed');
+        loadDepartments();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function loadDepartments() {
+    const tbody = document.getElementById('deptTableBody');
+    tbody.innerHTML = `<tr><td colspan="4" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
+
+    try {
+        const data = await apiFetch('/departments');
+        deptRows = data.departments || [];
+        hodRows = deptRows.flatMap(d => d.heads);
+
+        const isActive = h => Number(h.is_active) === 1;
+        document.getElementById('deptTotal').textContent = deptRows.length;
+        document.getElementById('deptNoHod').textContent =
+            deptRows.filter(d => !d.heads.some(isActive)).length;
+        // People, not assignments: one HOD heading two departments counts once.
+        document.getElementById('deptHodCount').textContent =
+            new Set(hodRows.map(h => h.email)).size;
+
+        fillHodDepartments();
+
+        if (!deptRows.length) {
+            tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">
+                <h3>No departments yet</h3>
+                <p>Departments come from the Discipline column of the allow list. Add students first.</p>
+                </div></td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = deptRows.map((d, i) => {
+            const heads = d.heads.length
+                ? `<div class="hod-list">${d.heads.map(h => `
+                    <div class="hod-entry${isActive(h) ? '' : ' is-inactive'}">
+                        <div>
+                            <div class="name-cell">${escHtml(h.name)}
+                                ${isActive(h) ? '' : '<span class="badge badge-danger">Suspended</span>'}</div>
+                            <div class="sub-text">${escHtml(h.email)} ·
+                                ${h.last_login_at ? `last signed in ${fmtDate(h.last_login_at)}` : 'never signed in'}</div>
+                        </div>
+                        <div class="row-actions">
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="editHod(${h.id})">Edit</button>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="toggleHod(${h.id}, ${!isActive(h)})">${isActive(h) ? 'Suspend' : 'Restore'}</button>
+                            <button type="button" class="btn btn-danger btn-sm"
+                                onclick="removeHod(${h.id})">Remove</button>
+                        </div>
+                    </div>`).join('')}</div>`
+                : '<span class="badge badge-danger">No HOD assigned</span>';
+            return `
+            <tr>
+                <td><div class="name-cell">${escHtml(d.department)}</div></td>
+                <td>${d.students}<div class="sub-text">${d.active_students} active</div></td>
+                <td>${heads}</td>
+                <td>
+                    <button type="button" class="btn btn-outline btn-sm"
+                        onclick="assignHodTo(${i})">Assign HOD</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
     }
 }
 

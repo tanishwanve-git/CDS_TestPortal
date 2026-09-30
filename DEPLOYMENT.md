@@ -243,7 +243,9 @@ grep -rn "GOOGLE_CLIENT_ID\|client_id" public/index.html
 
 > The portal additionally rejects any e-mail not ending in `@iitgn.ac.in` **and**
 > not present in the `allowed_students` table. Google auth alone is not enough to
-> get in.
+> get in. The one exception is a head of department added in the admin console
+> (see [section 14](#heads-of-department-hod-console)): they sign in without being
+> on the student roster, but only reach the console, never the exams.
 
 ---
 
@@ -504,9 +506,47 @@ pm2 restart cds-portal
 
 ### Admin console
 
-`https://mock.example.edu/admin`, restricted to `ADMIN_EMAILS`. It shows student
-lists, every attempt (legacy and mock), per-question responses, proctoring
-warnings and CSV exports. Changing `ADMIN_EMAILS` requires a `pm2 restart`.
+`https://mock.example.edu/admin`, restricted to `ADMIN_EMAILS` and to heads of
+department. It shows student lists, every attempt (legacy and mock), per-question
+responses, proctoring warnings and CSV exports. Changing `ADMIN_EMAILS` requires a
+`pm2 restart`.
+
+### Heads of department (HOD console)
+
+A head of department gets the same console as an admin, limited to the students
+of their own department: the roster and compliance report, every attempt and
+score, attempt drill-downs, proctoring warnings, question analytics, all the
+Excel/CSV exports, and the allow list for their department. They cannot see any
+other department's students, and cannot manage HODs.
+
+**A department is a `discipline` value on the allow list** (e.g. `Computer
+Science`, `Civil`). A HOD sees exactly the students whose allow-list discipline
+matches one of their departments.
+
+To add one, as an admin: **Admin console → Departments & HODs**, pick the
+department, enter the HOD's name and `@iitgn.ac.in` e-mail, and press **Assign
+HOD**. Every department from the allow list is listed there, with the ones that
+have no HOD flagged. To give one person several departments (e.g. Computer
+Science and Artificial Intelligence), assign them to each.
+
+The HOD then signs in on the normal login page with that Google account and lands
+straight in the console. They do **not** need to be on the student allow list.
+Access changes take effect immediately: suspending or removing a HOD locks them
+out on their next click, with no restart needed.
+
+The same can be done in SQL if you prefer:
+
+```sql
+INSERT INTO department_heads (name, email, department)
+VALUES ('Prof. A. Rao', 'hod.cse@iitgn.ac.in', 'Computer Science');
+
+-- Which spelling does the roster use for each department?
+SELECT discipline, COUNT(*) FROM allowed_students GROUP BY discipline;
+```
+
+The `department` value must match the allow list's `discipline` spelling
+(case does not matter). The console refuses a department no student has; raw
+SQL does not check, so use the query above first.
 
 ### Proctoring
 
@@ -649,6 +689,18 @@ mysql -u cds_user -p cds_portal -e \
 **Admin console returns 403**
 The signed-in e-mail isn't in `ADMIN_EMAILS`, or the app wasn't restarted after
 that value changed. `pm2 restart cds-portal`.
+
+**A head of department can't sign in, or sees no students**
+Check they have an active row, and that its department matches the roster's
+spelling:
+```bash
+mysql -u cds_user -p cds_portal -e "
+  SELECT name, email, department, is_active, last_login_at FROM department_heads;
+  SELECT discipline, COUNT(*) FROM allowed_students GROUP BY discipline;"
+```
+"Not registered for this portal" means no active `department_heads` row for that
+exact e-mail. An empty console means the `department` value matches no student's
+`discipline`.
 
 **A student is stuck on an attempt they can't finish**
 Each student has at most one open attempt per exam, and starting again resumes

@@ -12,13 +12,22 @@ exports.protect = (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized to access this route. No token provided.' });
     }
 
+    let decoded;
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
+        decoded = jwt.verify(token, JWT_SECRET);
     } catch (error) {
         return res.status(401).json({ message: 'Not authorized. Invalid or expired token.' });
     }
+
+    // A head of department who is not also a student signs in with a
+    // console-only token that carries no Students id. Every route behind this
+    // guard acts on req.user.id, so such a token has nothing to do here.
+    if (!decoded.id) {
+        return res.status(403).json({ message: 'This account can only open the admin console.' });
+    }
+
+    req.user = decoded;
+    next();
 };
 
 const getPool = require('../config/db');

@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const getPool = require('../config/db');
+const { resolveConsoleAccess } = require('../middlewares/adminMiddleware');
 
 require('dotenv').config();
 const { OAuth2Client } = require('google-auth-library');
@@ -30,6 +31,37 @@ async function checkStudentAuthorization(rawEmail, pool) {
     return {
         allowed: true,
         profile: rows[0]
+    };
+}
+
+/**
+ * Sign-in for someone allowed into the console but not on the student roster —
+ * in practice a head of department. They get a token with no Students id (the
+ * student routes refuse it) and the front end sends them straight to the
+ * console. The domain rule still applies: only @iitgn.ac.in accounts get here.
+ * Returns the response body, or null if this person has no console access.
+ */
+async function consoleOnlySignIn(email, googleName, pool) {
+    if (!email.endsWith('@iitgn.ac.in')) return null;
+    const access = await resolveConsoleAccess(email);
+    if (!access) return null;
+
+    if (access.role === 'hod') {
+        await pool.query('UPDATE department_heads SET last_login_at = NOW() WHERE LOWER(email) = ?', [email]);
+    }
+
+    const token = jwt.sign({ id: null, email }, JWT_SECRET, { expiresIn: '2h' });
+    return {
+        message: 'Logged in with Google successfully',
+        token,
+        user: {
+            id: null,
+            name: access.name || googleName || email,
+            email,
+            role: access.role,
+            departments: access.departments,
+            console_only: true
+        }
     };
 }
 
@@ -209,6 +241,10 @@ exports.googleLogin = async (req, res) => {
         // Domain & Whitelist Auth Check
         const authCheck = await checkStudentAuthorization(cleanEmail, pool);
         if (!authCheck.allowed) {
+            // Not a student — but a head of department still gets into the console.
+            const consoleSession = await consoleOnlySignIn(cleanEmail, name, pool);
+            if (consoleSession) return res.json(consoleSession);
+
             return res.status(authCheck.status).json({
                 error: authCheck.error,
                 message: authCheck.message

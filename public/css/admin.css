@@ -741,3 +741,25 @@ body {
     .filter-actions { grid-column: 1 / -1; }
     .row-actions { justify-content: flex-start; }
 }
+
+/* ══ Departments & HODs ═══════════════════════════════════════════════
+   A department row lists every head it has, each with its own actions. */
+.scope-banner { margin-bottom: 16px; }
+
+#hodForm { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+.hod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.hod-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.hod-entry.is-inactive .name-cell { color: var(--ink-2); }
