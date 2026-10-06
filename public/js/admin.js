@@ -68,6 +68,15 @@ function escHtml(str) {
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// A roster row's discipline badge, plus a second one for a dual major.
+function disciplineBadges(row) {
+    if (!row.discipline) return '—';
+    const second = row.secondary_discipline
+        ? ` <span class="badge badge-neutral" title="Second major">+ ${escHtml(row.secondary_discipline)}</span>`
+        : '';
+    return `<span class="badge badge-neutral">${escHtml(row.discipline)}</span>${second}`;
+}
+
 function truncate(str, max = 80) {
     if (!str) return '—';
     return str.length > max ? str.slice(0, max) + '…' : str;
@@ -221,8 +230,8 @@ function applyRole() {
     document.getElementById('adminRole').textContent = 'Head of department';
 
     const banner = document.getElementById('scopeBanner');
-    banner.textContent = `Showing ${depts} only. Every list, figure and export here covers the students of ` +
-        `${access.departments.length > 1 ? 'your departments' : 'your department'}.`;
+    banner.textContent = `Showing ${depts} only. Every list, figure and export here covers the students and ` +
+        `mock tests of ${access.departments.length > 1 ? 'your departments' : 'your department'}.`;
     banner.style.display = 'block';
 
     // The stock placeholder names a department this HOD may not use.
@@ -524,7 +533,7 @@ async function loadStudents(page = 1) {
                     </td>
                     <td>${fmt(s.roll_number)}</td>
                     <td>${fmt(s.programme)}</td>
-                    <td>${s.discipline ? `<span class="badge badge-neutral">${escHtml(s.discipline)}</span>` : '—'}</td>
+                    <td>${disciplineBadges(s)}</td>
                     <td>${signedIn}</td>
                     <td>${mocks}</td>
                     <td>${fmt(s.exams_attempted, '0')}</td>
@@ -559,13 +568,14 @@ function allowFormValues() {
         name: val('allowName'),
         email: val('allowEmail'),
         programme: val('allowProgramme'),
-        discipline: val('allowDiscipline')
+        discipline: val('allowDiscipline'),
+        secondary_discipline: val('allowSecondDiscipline')
     };
 }
 
 function resetAllowForm() {
     editingAllowId = null;
-    ['allowId', 'allowRoll', 'allowName', 'allowEmail', 'allowProgramme', 'allowDiscipline']
+    ['allowId', 'allowRoll', 'allowName', 'allowEmail', 'allowProgramme', 'allowDiscipline', 'allowSecondDiscipline']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     // A HOD can only add students to their own department; with just one, it
     // is the only valid answer, so fill it in.
@@ -617,6 +627,7 @@ function editAllowed(id) {
     document.getElementById('allowEmail').value = row.email || '';
     document.getElementById('allowProgramme').value = row.programme || '';
     document.getElementById('allowDiscipline').value = row.discipline || '';
+    document.getElementById('allowSecondDiscipline').value = row.secondary_discipline || '';
     document.getElementById('allowFormTitle').textContent = `Editing ${row.name}`;
     document.getElementById('allowSubmitBtn').textContent = 'Save changes';
     document.getElementById('allowCancelEdit').style.display = 'inline-flex';
@@ -684,7 +695,7 @@ async function loadAllowlist(page = 1) {
                     </td>
                     <td>${fmt(r.roll_number)}</td>
                     <td>${fmt(r.programme)}</td>
-                    <td>${r.discipline ? `<span class="badge badge-neutral">${escHtml(r.discipline)}</span>` : '—'}</td>
+                    <td>${disciplineBadges(r)}</td>
                     <td>${active
                         ? '<span class="badge badge-neutral">Active</span>'
                         : '<span class="badge badge-danger">Blocked</span>'}</td>
@@ -952,7 +963,7 @@ async function openStudentDetail(studentKey) {
                 <div class="detail-meta-item"><div class="meta-label">Email</div><div class="meta-value" style="font-size:13px">${escHtml(s.email)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Roll No</div><div class="meta-value">${fmt(s.roll_number)}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Programme</div><div class="meta-value" style="font-size:14px">${fmt(s.programme)}</div></div>
-                <div class="detail-meta-item"><div class="meta-label">Discipline</div><div class="meta-value" style="font-size:14px">${fmt(s.discipline)}</div></div>
+                <div class="detail-meta-item"><div class="meta-label">Discipline</div><div class="meta-value" style="font-size:14px">${escHtml(fmt(s.discipline))}${s.secondary_discipline ? ` + ${escHtml(s.secondary_discipline)}` : ''}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Signed In</div><div class="meta-value" style="font-size:14px">${s.has_signed_in ? fmtDate(s.registered_at) : 'Never'}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Mocks Taken</div><div class="meta-value">${totalAttempts}</div></div>
                 <div class="detail-meta-item"><div class="meta-label">Exams Sat</div><div class="meta-value">${examsSat} / ${data.examStats.length}</div></div>

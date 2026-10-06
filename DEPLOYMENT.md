@@ -267,6 +267,26 @@ mysql -u cds_user -p cds_portal -e "SELECT COUNT(*) FROM allowed_students;"
 To add students later, append to the CSV and run the same command — it is an
 upsert, so existing rows are updated rather than duplicated.
 
+A student only sees the mock test(s) of their own department. A dual-major
+student (the CSV's `Sec` column, stored as `secondary_discipline`) sees the
+tests of both majors. Which exam serves which discipline is set by `disciplines`
+in `database/exam_blueprints.js`, matched via `src/utils/departments.js`.
+
+### Starting over with BTech students only
+
+`database/reset_to_btech.js` deletes every student and all of their activity
+(allow list, accounts, attempts, results, warnings, password-reset codes), then
+re-adds only the BTech students (BTech, Dual Major BTech, BTech - MTech Dual
+degree) from `seed_students.sql`. HODs and all test content (question bank, mock
+exams) are kept. It runs in one transaction.
+
+```bash
+mysqldump -u cds_user -p cds_portal > backup_before_reset.sql   # backup first
+npm run db:reset-btech              # dry run: shows what would be deleted / added
+npm run db:reset-btech -- --yes     # actually do it
+pm2 restart cds-portal
+```
+
 ---
 
 ## 9. Build the question bank and mock exams
@@ -514,14 +534,16 @@ responses, proctoring warnings and CSV exports. Changing `ADMIN_EMAILS` requires
 ### Heads of department (HOD console)
 
 A head of department gets the same console as an admin, limited to the students
-of their own department: the roster and compliance report, every attempt and
-score, attempt drill-downs, proctoring warnings, question analytics, all the
-Excel/CSV exports, and the allow list for their department. They cannot see any
-other department's students, and cannot manage HODs.
+and mock tests of their own department: the roster and compliance report, every
+attempt and score, attempt drill-downs, proctoring warnings, question analytics,
+all the Excel/CSV exports, and the allow list for their department. They cannot
+see any other department's students or tests (nor the legacy fixed tests, which
+belong to no department), and cannot manage HODs.
 
 **A department is a `discipline` value on the allow list** (e.g. `Computer
 Science`, `Civil`). A HOD sees exactly the students whose allow-list discipline
-matches one of their departments.
+— or, for a dual major, second discipline — matches one of their departments,
+and only those students' attempts on their department's mock test.
 
 To add one, as an admin: **Admin console → Departments & HODs**, pick the
 department, enter the HOD's name and `@iitgn.ac.in` e-mail, and press **Assign

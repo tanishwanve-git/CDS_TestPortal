@@ -9,7 +9,8 @@
     "import:bank": "node database/import_question_bank.js",
     "import:bank:dry": "node database/import_question_bank.js --dry-run",
     "import:bank:reset": "node database/import_question_bank.js --reset",
-    "seed:students": "node database/seed_allowed_students.js"
+    "seed:students": "node database/seed_allowed_students.js",
+    "db:reset-btech": "node database/reset_to_btech.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

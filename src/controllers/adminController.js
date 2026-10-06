@@ -1,14 +1,17 @@
 const getPool = require('../config/db');
+const { examServes, departmentsOf } = require('../utils/departments');
 
 // ─── Department scoping ──────────────────────────────────────────────────────
 
 /**
  * The console serves two roles off the same queries. `req.access` (set by
- * consoleProtect) says which: an admin sees every student, a head of department
- * only the students whose roster discipline is one of their departments.
+ * consoleProtect) says which: an admin sees everything; a head of department
+ * sees only the students whose roster discipline — or, for a dual major, second
+ * discipline — is one of their departments, and only their departments' mock
+ * tests.
  *
- * Every query that touches student data runs through one of the two helpers
- * below. For an admin both return a no-op condition, so admin results are
+ * Every query that touches student or test data runs through the helpers
+ * below. For an admin they all return a no-op condition, so admin results are
  * exactly what they were before HODs existed.
  *
  * The allow list is the source of truth for a student's department: that is the
@@ -16,21 +19,51 @@ const getPool = require('../config/db');
  * sign-in and never refreshed.
  */
 
+const ALL = { sql: '1 = 1', params: [] };
+const NONE = { sql: '1 = 0', params: [] };
+
 // Filters an allowed_students alias.
 function rosterScope(req, alias = 'al') {
-    if (req.access.role === 'admin') return { sql: '1 = 1', params: [] };
-    return { sql: `${alias}.discipline IN (?)`, params: [req.access.departments] };
+    if (req.access.role === 'admin') return ALL;
+    return {
+        sql: `(${alias}.discipline IN (?) OR ${alias}.secondary_discipline IN (?))`,
+        params: [req.access.departments, req.access.departments]
+    };
 }
 
 // Filters any column holding a Students.id — the owner of an attempt, a legacy
 // result or a violation.
 function studentScope(req, column) {
-    if (req.access.role === 'admin') return { sql: '1 = 1', params: [] };
+    if (req.access.role === 'admin') return ALL;
     return {
         sql: `${column} IN (SELECT sc_s.id FROM Students sc_s
                               JOIN allowed_students sc_al ON LOWER(sc_al.email) = LOWER(sc_s.email)
-                             WHERE sc_al.discipline IN (?))`,
-        params: [req.access.departments]
+                             WHERE sc_al.discipline IN (?) OR sc_al.secondary_discipline IN (?))`,
+        params: [req.access.departments, req.access.departments]
+    };
+}
+
+// Filters any column holding a Mock_Exams.id to the caller's departments' tests.
+function examScope(req, column) {
+    if (req.access.role === 'admin') return ALL;
+    return req.access.examIds.length
+        ? { sql: `${column} IN (?)`, params: [req.access.examIds] }
+        : NONE;
+}
+
+// Legacy fixed tests belong to no department, so they are an admin-only view.
+function legacyScope(req) {
+    return req.access.role === 'admin' ? ALL : NONE;
+}
+
+// Filters a Test_Violations alias to violations raised during the caller's
+// tests. A legacy violation has no attempt_id, so a HOD sees none of those.
+function violationScope(req, alias = 'v') {
+    if (req.access.role === 'admin') return ALL;
+    const exams = examScope(req, 'vs_a.exam_id');
+    return {
+        sql: `${alias}.attempt_id IN (SELECT vs_a.id FROM Exam_Attempts vs_a WHERE ${exams.sql})`,
+        params: exams.params
     };
 }
 
@@ -41,6 +74,18 @@ function ownDepartment(req, value) {
     if (req.access.role === 'admin') return value;
     const want = String(value || '').trim().toLowerCase();
     return req.access.departments.find(d => d.trim().toLowerCase() === want) || null;
+}
+
+// A HOD may write a student only while one of the student's departments — the
+// discipline, or a dual major's second one — is theirs. Matching values are
+// rewritten to the HOD's own spelling. Admins may write anything.
+function ownStudent(req, values) {
+    if (req.access.role === 'admin') return true;
+    const primary = ownDepartment(req, values.discipline);
+    const secondary = values.secondary_discipline && ownDepartment(req, values.secondary_discipline);
+    if (primary) values.discipline = primary;
+    if (secondary) values.secondary_discipline = secondary;
+    return Boolean(primary || secondary);
 }
 
 function notYourDepartment(req) {
@@ -67,28 +112,34 @@ exports.getOverview = async (req, res) => {
     try {
         const pool = await getPool;
 
-        // Each query is limited to the caller's students (a no-op for admins).
+        // Each query is limited to the caller's students and tests (a no-op for
+        // admins).
         const scopeStudent = studentScope(req, 's.id');
         const scopeViolation = studentScope(req, 'v.student_id');
+        const scopeViolationTest = violationScope(req, 'v');
         const scopeResult = studentScope(req, 'r.student_id');
         const scopeAttempt = studentScope(req, 'a.student_id');
-        const bothKinds = [...scopeResult.params, ...scopeAttempt.params];
+        const scopeLegacy = legacyScope(req);
+        const scopeExam = examScope(req, 'e.id');
+        const scopeAttemptExam = examScope(req, 'a.exam_id');
 
         const [[{ total_students }]] = await pool.query(
             `SELECT COUNT(*) AS total_students FROM Students s WHERE ${scopeStudent.sql}`,
             scopeStudent.params
         );
         const [[{ total_violations }]] = await pool.query(
-            `SELECT COUNT(*) AS total_violations FROM Test_Violations v WHERE ${scopeViolation.sql}`,
-            scopeViolation.params
+            `SELECT COUNT(*) AS total_violations FROM Test_Violations v
+              WHERE ${scopeViolation.sql} AND ${scopeViolationTest.sql}`,
+            [...scopeViolation.params, ...scopeViolationTest.params]
         );
 
         // Two kinds of test coexist: legacy fixed papers (Tests/Test_Results) and
         // randomised mock exams (Mock_Exams/Exam_Attempts). Every figure below
         // covers both so the console never under-reports activity.
         const [[{ total_tests }]] = await pool.query(
-            `SELECT (SELECT COUNT(*) FROM Tests)
-                  + (SELECT COUNT(*) FROM Mock_Exams WHERE is_active = 1) AS total_tests`
+            `SELECT (SELECT COUNT(*) FROM Tests WHERE ${scopeLegacy.sql})
+                  + (SELECT COUNT(*) FROM Mock_Exams e WHERE e.is_active = 1 AND ${scopeExam.sql}) AS total_tests`,
+            scopeExam.params
         );
 
         const [[scoreStats]] = await pool.query(`
@@ -97,11 +148,12 @@ exports.getOverview = async (req, res) => {
                    MAX(score) AS max_score,
                    MIN(score) AS min_score
             FROM (
-                SELECT r.score FROM Test_Results r WHERE ${scopeResult.sql}
+                SELECT r.score FROM Test_Results r WHERE ${scopeLegacy.sql} AND ${scopeResult.sql}
                 UNION ALL
-                SELECT a.score FROM Exam_Attempts a WHERE a.status = 'submitted' AND ${scopeAttempt.sql}
+                SELECT a.score FROM Exam_Attempts a
+                 WHERE a.status = 'submitted' AND ${scopeAttempt.sql} AND ${scopeAttemptExam.sql}
             ) AS all_scores
-        `, bothKinds);
+        `, [...scopeResult.params, ...scopeAttempt.params, ...scopeAttemptExam.params]);
         const { total_attempts, avg_score, max_score, min_score } = scoreStats;
 
         // Attempts per test for chart data
@@ -109,6 +161,7 @@ exports.getOverview = async (req, res) => {
             SELECT t.title, COUNT(r.id) AS attempt_count, ROUND(AVG(r.score), 2) AS avg_score
             FROM Tests t
             LEFT JOIN Test_Results r ON t.id = r.test_id AND ${scopeResult.sql}
+            WHERE ${scopeLegacy.sql}
             GROUP BY t.id, t.title
 
             UNION ALL
@@ -116,11 +169,11 @@ exports.getOverview = async (req, res) => {
             SELECT e.title, COUNT(a.id) AS attempt_count, ROUND(AVG(a.score), 2) AS avg_score
             FROM Mock_Exams e
             LEFT JOIN Exam_Attempts a ON a.exam_id = e.id AND a.status = 'submitted' AND ${scopeAttempt.sql}
-            WHERE e.is_active = 1
+            WHERE e.is_active = 1 AND ${scopeExam.sql}
             GROUP BY e.id, e.title
 
             ORDER BY attempt_count DESC
-        `, bothKinds);
+        `, [...scopeResult.params, ...scopeAttempt.params, ...scopeExam.params]);
 
         // Recent 10 attempts across both kinds
         const [recentAttempts] = await pool.query(`
@@ -130,7 +183,7 @@ exports.getOverview = async (req, res) => {
                 FROM Test_Results r
                 JOIN Students s ON r.student_id = s.id
                 JOIN Tests t ON r.test_id = t.id
-                WHERE ${scopeResult.sql}
+                WHERE ${scopeLegacy.sql} AND ${scopeResult.sql}
 
                 UNION ALL
 
@@ -139,11 +192,11 @@ exports.getOverview = async (req, res) => {
                 FROM Exam_Attempts a
                 JOIN Students s ON a.student_id = s.id
                 JOIN Mock_Exams e ON a.exam_id = e.id
-                WHERE a.status = 'submitted' AND ${scopeAttempt.sql}
+                WHERE a.status = 'submitted' AND ${scopeAttempt.sql} AND ${scopeAttemptExam.sql}
             ) AS recent
             ORDER BY created_at DESC
             LIMIT 10
-        `, bothKinds);
+        `, [...scopeResult.params, ...scopeAttempt.params, ...scopeAttemptExam.params]);
 
         res.json({
             stats: {
@@ -179,10 +232,11 @@ exports.getOverview = async (req, res) => {
  * they would discard every student with no matching attempt, which again is the
  * exact population the report exists to surface.
  *
- * `scope` is the caller's rosterScope(); it is required so that no caller can
- * forget to limit a HOD to their own department.
+ * `scope` is the caller's rosterScope() and `exams` their examScope() on
+ * a.exam_id; both are required so that no caller can forget to limit a HOD to
+ * their own department's students and tests.
  */
-function buildRosterQuery(q, { scope, ignoreStatus = false }) {
+function buildRosterQuery(q, { scope, exams, ignoreStatus = false }) {
     const where = ['al.is_active = TRUE', scope.sql];
     const whereParams = [...scope.params];
 
@@ -192,11 +246,14 @@ function buildRosterQuery(q, { scope, ignoreStatus = false }) {
         whereParams.push(like, like, like);
     }
     if (q.programme) { where.push('al.programme = ?'); whereParams.push(q.programme); }
-    if (q.discipline) { where.push('al.discipline = ?'); whereParams.push(q.discipline); }
+    if (q.discipline) {
+        where.push('(al.discipline = ? OR al.secondary_discipline = ?)');
+        whereParams.push(q.discipline, q.discipline);
+    }
 
     // ── Which attempts count towards the numbers ──────────────────────────
-    const joinCond = ["a.status = 'submitted'"];
-    const joinParams = [];
+    const joinCond = ["a.status = 'submitted'", exams.sql];
+    const joinParams = [...exams.params];
     if (q.exam_id) { joinCond.push('a.exam_id = ?'); joinParams.push(parseInt(q.exam_id, 10)); }
     if (q.from) { joinCond.push('a.submitted_at >= ?'); joinParams.push(`${q.from} 00:00:00`); }
     if (q.to) { joinCond.push('a.submitted_at <= ?'); joinParams.push(`${q.to} 23:59:59`); }
@@ -230,6 +287,7 @@ function buildRosterQuery(q, { scope, ignoreStatus = false }) {
 
     const sql = `
         SELECT al.roll_number, al.name, al.email, al.programme, al.discipline,
+               al.secondary_discipline,
                s.id            AS student_id,
                s.created_at    AS registered_at,
                COUNT(a.id)                  AS attempts,
@@ -245,7 +303,7 @@ function buildRosterQuery(q, { scope, ignoreStatus = false }) {
         LEFT JOIN Exam_Attempts a ON a.student_id = s.id AND ${joinCond.join(' AND ')}
         WHERE ${where.join(' AND ')}
         GROUP BY al.id, al.roll_number, al.name, al.email, al.programme,
-                 al.discipline, s.id, s.created_at
+                 al.discipline, al.secondary_discipline, s.id, s.created_at
         ${having.length ? 'HAVING ' + having.join(' AND ') : ''}
     `;
 
@@ -274,7 +332,8 @@ exports.getStudents = async (req, res) => {
         const target = parseInt(req.query.target, 10) || 1;
 
         const scope = rosterScope(req);
-        const { sql, params } = buildRosterQuery(req.query, { scope });
+        const exams = examScope(req, 'a.exam_id');
+        const { sql, params } = buildRosterQuery(req.query, { scope, exams });
 
         const [[{ total }]] = await pool.query(
             `SELECT COUNT(*) AS total FROM (${sql}) AS r`, params
@@ -288,7 +347,7 @@ exports.getStudents = async (req, res) => {
 
         // The summary ignores the status filter so the cards always show the full
         // breakdown of the current search, not just the slice being viewed.
-        const base = buildRosterQuery(req.query, { scope, ignoreStatus: true });
+        const base = buildRosterQuery(req.query, { scope, exams, ignoreStatus: true });
         const [[summary]] = await pool.query(`
             SELECT COUNT(*)                                  AS roster,
                    SUM(student_id IS NULL)                   AS never_logged_in,
@@ -309,17 +368,16 @@ exports.getStudents = async (req, res) => {
 
 // ─── Per-exam coverage: who has sat each mock, and who still has not ─────────
 
-// Shared by the coverage screen and its export. Both the eligible headcount and
-// the attempts are limited to the caller's students.
+// Shared by the coverage screen and its export. The exams are limited to the
+// caller's tests, and both the eligible headcount and the attempts to their
+// students.
 async function queryExamCoverage(pool, req) {
     const scopeRoster = rosterScope(req, 'al');
     const scopeAttempt = studentScope(req, 'a.student_id');
+    const scopeExam = examScope(req, 'e.id');
     const [exams] = await pool.query(`
-        SELECT e.id, e.code, e.title, e.department, e.duration_minutes, e.total_questions,
-               (SELECT COUNT(*) FROM allowed_students al
-                 WHERE al.is_active = TRUE AND ${scopeRoster.sql}
-                   AND (e.disciplines IS NULL OR e.disciplines = ''
-                        OR FIND_IN_SET(al.discipline, e.disciplines))) AS eligible,
+        SELECT e.id, e.code, e.title, e.department, e.disciplines,
+               e.duration_minutes, e.total_questions,
                COUNT(DISTINCT a.student_id) AS students_attempted,
                COUNT(a.id)                  AS attempts,
                ROUND(AVG(a.score / NULLIF(a.max_score, 0)) * 100, 1) AS avg_pct,
@@ -327,10 +385,26 @@ async function queryExamCoverage(pool, req) {
         FROM Mock_Exams e
         LEFT JOIN Exam_Attempts a
                ON a.exam_id = e.id AND a.status = 'submitted' AND ${scopeAttempt.sql}
-        WHERE e.is_active = 1
+        WHERE e.is_active = 1 AND ${scopeExam.sql}
         GROUP BY e.id
         ORDER BY e.title
-    `, [...scopeRoster.params, ...scopeAttempt.params]);
+    `, [...scopeAttempt.params, ...scopeExam.params]);
+
+    // Eligible = the students this exam is offered to. The roster spells
+    // disciplines out in full while exams carry codes, so the match is made in
+    // departments.js rather than in SQL.
+    const [groups] = await pool.query(`
+        SELECT al.discipline, al.secondary_discipline, COUNT(*) AS n
+          FROM allowed_students al
+         WHERE al.is_active = TRUE AND ${scopeRoster.sql}
+         GROUP BY al.discipline, al.secondary_discipline
+    `, scopeRoster.params);
+
+    for (const e of exams) {
+        e.eligible = groups
+            .filter(g => examServes(e, departmentsOf(g)))
+            .reduce((sum, g) => sum + Number(g.n), 0);
+    }
     return exams;
 }
 
@@ -365,8 +439,10 @@ exports.getFilterOptions = async (req, res) => {
               GROUP BY al.discipline ORDER BY al.discipline`,
             scope.params
         );
+        const scopeExam = examScope(req, 'id');
         const [exams] = await pool.query(
-            `SELECT id, title FROM Mock_Exams WHERE is_active = 1 ORDER BY title`
+            `SELECT id, title FROM Mock_Exams WHERE is_active = 1 AND ${scopeExam.sql} ORDER BY title`,
+            scopeExam.params
         );
         res.json({ programmes, disciplines, exams });
     } catch (error) {
@@ -409,6 +485,15 @@ function parseAllowedStudent(body = {}) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
         return { error: 'Email does not look like a valid address.' };
     }
+
+    // Optional: a dual-major student's second department. Blank, or the same
+    // as the first, means there is none.
+    const second = body.secondary_discipline === undefined || body.secondary_discipline === null
+        ? '' : String(body.secondary_discipline).trim();
+    if (second.length > 100) return { error: 'Second major must be 100 characters or fewer.' };
+    values.secondary_discipline =
+        second && second.toLowerCase() !== values.discipline.toLowerCase() ? second : null;
+
     return { values };
 }
 
@@ -428,7 +513,10 @@ function allowlistWhere(q, { scope, ignoreStatus = false }) {
         params.push(like, like, like);
     }
     if (q.programme) { where.push('al.programme = ?'); params.push(q.programme); }
-    if (q.discipline) { where.push('al.discipline = ?'); params.push(q.discipline); }
+    if (q.discipline) {
+        where.push('(al.discipline = ? OR al.secondary_discipline = ?)');
+        params.push(q.discipline, q.discipline);
+    }
     if (!ignoreStatus) {
         if (q.status === 'active') where.push('al.is_active = TRUE');
         if (q.status === 'inactive') where.push('al.is_active = FALSE');
@@ -454,7 +542,7 @@ exports.getAllowlist = async (req, res) => {
         // a roster row with no Students match has never signed in.
         const [students] = await pool.query(
             `SELECT al.id, al.roll_number, al.name, al.email, al.programme,
-                    al.discipline, al.is_active, al.created_at,
+                    al.discipline, al.secondary_discipline, al.is_active, al.created_at,
                     s.id IS NOT NULL AS has_account
                FROM allowed_students al
                LEFT JOIN Students s ON LOWER(s.email) = LOWER(al.email)
@@ -490,16 +578,15 @@ exports.createAllowedStudent = async (req, res) => {
         const { values, error } = parseAllowedStudent(req.body);
         if (error) return res.status(400).json({ message: error });
 
-        const discipline = ownDepartment(req, values.discipline);
-        if (!discipline) return res.status(403).json({ message: notYourDepartment(req) });
-        values.discipline = discipline;
+        if (!ownStudent(req, values)) return res.status(403).json({ message: notYourDepartment(req) });
 
         const pool = await getPool;
         const [result] = await pool.query(
             `INSERT INTO allowed_students
-                (roll_number, name, email, programme, discipline, is_active)
-             VALUES (?, ?, ?, ?, ?, TRUE)`,
-            [values.roll_number, values.name, values.email, values.programme, values.discipline]
+                (roll_number, name, email, programme, discipline, secondary_discipline, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+            [values.roll_number, values.name, values.email, values.programme,
+             values.discipline, values.secondary_discipline]
         );
 
         const [[student]] = await pool.query(
@@ -532,16 +619,15 @@ exports.updateAllowedStudent = async (req, res) => {
         // A status toggle posts only `is_active`, so fall back to the stored
         // values rather than making it round-trip the whole record.
         const merged = {};
-        for (const f of ALLOWLIST_FIELDS) {
-            merged[f.key] = req.body[f.key] === undefined ? existing[f.key] : req.body[f.key];
+        for (const key of [...ALLOWLIST_FIELDS.map(f => f.key), 'secondary_discipline']) {
+            merged[key] = req.body[key] === undefined ? existing[key] : req.body[key];
         }
         const { values, error } = parseAllowedStudent(merged);
         if (error) return res.status(400).json({ message: error });
 
-        // A HOD can edit their own students but not move one to another department.
-        const discipline = ownDepartment(req, values.discipline);
-        if (!discipline) return res.status(403).json({ message: notYourDepartment(req) });
-        values.discipline = discipline;
+        // A HOD can edit their own students but not move one out of their
+        // department(s) entirely.
+        if (!ownStudent(req, values)) return res.status(403).json({ message: notYourDepartment(req) });
 
         // `is_active` may arrive as a JSON boolean from the console or as a
         // string from a hand-rolled request; treat both the same way.
@@ -553,10 +639,10 @@ exports.updateAllowedStudent = async (req, res) => {
         await pool.query(
             `UPDATE allowed_students
                 SET roll_number = ?, name = ?, email = ?, programme = ?,
-                    discipline = ?, is_active = ?
+                    discipline = ?, secondary_discipline = ?, is_active = ?
               WHERE id = ?`,
             [values.roll_number, values.name, values.email, values.programme,
-             values.discipline, isActive, id]
+             values.discipline, values.secondary_discipline, isActive, id]
         );
 
         const [[student]] = await pool.query(
@@ -600,7 +686,8 @@ exports.deleteAllowedStudent = async (req, res) => {
 /**
  * A department is a discipline value on the allow list. That is what a HOD's
  * console is scoped by, so the list here is built from the roster itself, plus
- * any department that still has a head after its last student was removed.
+ * any department that still has a head after its last student was removed. A
+ * dual major counts towards both of their departments.
  */
 exports.getDepartments = async (req, res) => {
     try {
@@ -612,8 +699,12 @@ exports.getDepartments = async (req, res) => {
               FROM (SELECT discipline AS department FROM allowed_students
                      WHERE discipline IS NOT NULL AND discipline <> ''
                     UNION
+                    SELECT secondary_discipline FROM allowed_students
+                     WHERE secondary_discipline IS NOT NULL AND secondary_discipline <> ''
+                    UNION
                     SELECT department FROM department_heads) AS d
-              LEFT JOIN allowed_students al ON al.discipline = d.department
+              LEFT JOIN allowed_students al
+                     ON al.discipline = d.department OR al.secondary_discipline = d.department
              GROUP BY d.department
              ORDER BY d.department
         `);
@@ -669,9 +760,12 @@ function parseHod(body = {}) {
  */
 async function rosterDepartment(pool, value) {
     const [[row]] = await pool.query(
-        `SELECT discipline FROM allowed_students WHERE discipline = ? LIMIT 1`, [value]
+        `SELECT discipline AS department FROM allowed_students WHERE discipline = ?
+         UNION
+         SELECT secondary_discipline FROM allowed_students WHERE secondary_discipline = ?
+         LIMIT 1`, [value, value]
     );
-    return row ? row.discipline : null;
+    return row ? row.department : null;
 }
 
 function duplicateHod(error, values) {
@@ -808,11 +902,17 @@ exports.getStudentDetail = async (req, res) => {
 
         if (!roster) return res.status(404).json({ message: 'Student not found' });
         const studentId = roster.student_id || null;
+        const scopeExam = examScope(req, 'e.id');
+        const scopeAttemptExam = examScope(req, 'a.exam_id');
+        const scopeLegacy = legacyScope(req);
+        const scopeViolationTest = violationScope(req, 'v');
 
-        // Every active mock exam, whether or not this student has sat it — a row
-        // of zeroes is the most useful row on this screen.
-        const [examStats] = await pool.query(`
-            SELECT e.id, e.code, e.title, e.total_questions, e.duration_minutes,
+        // Every active mock exam offered to this student, whether or not they
+        // have sat it — a row of zeroes is the most useful row on this screen —
+        // plus any other exam they did sit. A HOD sees only their own tests.
+        const [allExamStats] = await pool.query(`
+            SELECT e.id, e.code, e.title, e.department, e.disciplines,
+                   e.total_questions, e.duration_minutes,
                    COUNT(a.id)                  AS attempts,
                    MAX(a.score)                 AS best_score,
                    ROUND(AVG(a.score), 2)       AS avg_score,
@@ -823,10 +923,12 @@ exports.getStudentDetail = async (req, res) => {
             FROM Mock_Exams e
             LEFT JOIN Exam_Attempts a
                    ON a.exam_id = e.id AND a.status = 'submitted' AND a.student_id = ?
-            WHERE e.is_active = 1
+            WHERE e.is_active = 1 AND ${scopeExam.sql}
             GROUP BY e.id
             ORDER BY e.title
-        `, [studentId]);
+        `, [studentId, ...scopeExam.params]);
+        const studentDepts = departmentsOf(roster);
+        const examStats = allExamStats.filter(e => examServes(e, studentDepts) || Number(e.attempts) > 0);
 
         let attempts = [];
         let violations = [];
@@ -839,7 +941,7 @@ exports.getStudentDetail = async (req, res) => {
                        a.submitted_at AS created_at
                   FROM Exam_Attempts a
                   JOIN Mock_Exams e ON e.id = a.exam_id
-                 WHERE a.student_id = ? AND a.status = 'submitted'
+                 WHERE a.student_id = ? AND a.status = 'submitted' AND ${scopeAttemptExam.sql}
                 UNION ALL
                 SELECT r.id, 'legacy' AS kind, t.title, r.score, t.total_questions * 4 AS max_score,
                        NULL, NULL, NULL,
@@ -847,9 +949,9 @@ exports.getStudentDetail = async (req, res) => {
                        r.created_at
                   FROM Test_Results r
                   JOIN Tests t ON t.id = r.test_id
-                 WHERE r.student_id = ?
+                 WHERE r.student_id = ? AND ${scopeLegacy.sql}
                  ORDER BY created_at DESC
-            `, [studentId, studentId]);
+            `, [studentId, ...scopeAttemptExam.params, studentId]);
 
             // test_id is NULL for mock violations, so this must LEFT JOIN Tests.
             [violations] = await pool.query(`
@@ -859,9 +961,9 @@ exports.getStudentDetail = async (req, res) => {
                   LEFT JOIN Tests t ON t.id = v.test_id
                   LEFT JOIN Exam_Attempts a ON a.id = v.attempt_id
                   LEFT JOIN Mock_Exams e ON e.id = a.exam_id
-                 WHERE v.student_id = ?
+                 WHERE v.student_id = ? AND ${scopeViolationTest.sql}
                  ORDER BY v.created_at DESC
-            `, [studentId]);
+            `, [studentId, ...scopeViolationTest.params]);
         }
 
         res.json({
@@ -872,6 +974,7 @@ exports.getStudentDetail = async (req, res) => {
                 roll_number: roster.roll_number,
                 programme: roster.programme,
                 discipline: roster.discipline,
+                secondary_discipline: roster.secondary_discipline || null,
                 registered_at: roster.registered_at,
                 has_signed_in: Boolean(studentId)
             },
@@ -890,9 +993,13 @@ exports.getStudentDetail = async (req, res) => {
 exports.getTests = async (req, res) => {
     try {
         const pool = await getPool;
-        // Every test is listed; the figures count only the caller's students.
+        // Every test the caller may see is listed — all of them for an admin, a
+        // HOD's own department's mock tests otherwise — and the figures count
+        // only the caller's students.
         const scopeResult = studentScope(req, 'r.student_id');
         const scopeAttempt = studentScope(req, 'a.student_id');
+        const scopeLegacy = legacyScope(req);
+        const scopeExam = examScope(req, 'e.id');
 
         const [tests] = await pool.query(`
             SELECT t.id, 'legacy' AS kind, t.title, t.duration_minutes, t.total_questions,
@@ -905,6 +1012,7 @@ exports.getTests = async (req, res) => {
                    (SELECT COUNT(*) FROM Questions q WHERE q.test_id = t.id) AS question_count
             FROM Tests t
             LEFT JOIN Test_Results r ON t.id = r.test_id AND ${scopeResult.sql}
+            WHERE ${scopeLegacy.sql}
             GROUP BY t.id
 
             UNION ALL
@@ -926,11 +1034,11 @@ exports.getTests = async (req, res) => {
             FROM Mock_Exams e
             LEFT JOIN Exam_Attempts a
                    ON a.exam_id = e.id AND a.status = 'submitted' AND ${scopeAttempt.sql}
-            WHERE e.is_active = 1
+            WHERE e.is_active = 1 AND ${scopeExam.sql}
             GROUP BY e.id
 
             ORDER BY created_at DESC
-        `, [...scopeResult.params, ...scopeAttempt.params]);
+        `, [...scopeResult.params, ...scopeAttempt.params, ...scopeExam.params]);
 
         res.json({ tests });
     } catch (error) {
@@ -955,10 +1063,11 @@ exports.getAttempts = async (req, res) => {
 
         const scopeResult = studentScope(req, 'r.student_id');
         const scopeAttempt = studentScope(req, 'a.student_id');
-        const legacyWhere = [scopeResult.sql];
+        const scopeExam = examScope(req, 'a.exam_id');
+        const legacyWhere = [legacyScope(req).sql, scopeResult.sql];
         const legacyParams = [...scopeResult.params];
-        const mockWhere = ["a.status = 'submitted'", scopeAttempt.sql];
-        const mockParams = [...scopeAttempt.params];
+        const mockWhere = ["a.status = 'submitted'", scopeAttempt.sql, scopeExam.sql];
+        const mockParams = [...scopeAttempt.params, ...scopeExam.params];
 
         if (filter) {
             // A filter naming one kind blanks the other half of the union.
@@ -1045,7 +1154,7 @@ exports.getAttemptDetail = async (req, res) => {
             FROM Test_Results r
             JOIN Students s ON r.student_id = s.id
             JOIN Tests t ON r.test_id = t.id
-            WHERE r.id = ? AND ${scope.sql}
+            WHERE r.id = ? AND ${legacyScope(req).sql} AND ${scope.sql}
         `, [resultId, ...scope.params]);
 
         if (results.length === 0) return res.status(404).json({ message: 'Attempt not found' });
@@ -1098,6 +1207,7 @@ exports.getAttemptDetail = async (req, res) => {
  */
 async function getMockAttemptDetail(pool, req, attemptId, res) {
     const scope = studentScope(req, 'a.student_id');
+    const scopeExam = examScope(req, 'a.exam_id');
     const [[result]] = await pool.query(`
         SELECT a.id, a.student_id, a.exam_id, a.score, a.max_score, a.total_questions,
                a.total_correct, a.total_wrong, a.total_answered, a.time_taken_seconds,
@@ -1106,8 +1216,8 @@ async function getMockAttemptDetail(pool, req, attemptId, res) {
         FROM Exam_Attempts a
         JOIN Students s ON a.student_id = s.id
         JOIN Mock_Exams e ON a.exam_id = e.id
-        WHERE a.id = ? AND a.status = 'submitted' AND ${scope.sql}
-    `, [attemptId, ...scope.params]);
+        WHERE a.id = ? AND a.status = 'submitted' AND ${scope.sql} AND ${scopeExam.sql}
+    `, [attemptId, ...scope.params, ...scopeExam.params]);
 
     if (!result) return res.status(404).json({ message: 'Attempt not found' });
 
@@ -1161,7 +1271,12 @@ exports.getWarnings = async (req, res) => {
         const filterKind = filter.includes(':') ? filter.split(':')[0] : null;
         const filterId = filter.includes(':') ? filter.split(':')[1] : filter;
 
-        const scope = studentScope(req, 'v.student_id');
+        const studentsOnly = studentScope(req, 'v.student_id');
+        const testsOnly = violationScope(req, 'v');
+        const scope = {
+            sql: `${studentsOnly.sql} AND ${testsOnly.sql}`,
+            params: [...studentsOnly.params, ...testsOnly.params]
+        };
         let where = `WHERE ${scope.sql}`;
         const params = [...scope.params];
 
@@ -1249,7 +1364,8 @@ exports.getQuestions = async (req, res) => {
         const filter = String(test_id || '');
         const filterKind = filter.includes(':') ? filter.split(':')[0] : null;
         const filterId = filter.includes(':') ? filter.split(':')[1] : filter;
-        const wantLegacy = !filter || filterKind === 'legacy';
+        // Legacy tests belong to no department, so a HOD gets mock questions only.
+        const wantLegacy = (!filter || filterKind === 'legacy') && req.access.role === 'admin';
         const wantMock = !filter || filterKind === 'mock';
 
         const annotated = [];
@@ -1330,8 +1446,9 @@ exports.getQuestions = async (req, res) => {
         if (wantMock) {
             const mockId = filterKind === 'mock' ? filterId : null;
             const scope = studentScope(req, 'a.student_id');
-            const mockWhere = `WHERE ${scope.sql}${mockId ? ' AND a.exam_id = ?' : ''}`;
-            const mockParams = mockId ? [...scope.params, mockId] : scope.params;
+            const scopeExam = examScope(req, 'a.exam_id');
+            const mockWhere = `WHERE ${scope.sql} AND ${scopeExam.sql}${mockId ? ' AND a.exam_id = ?' : ''}`;
+            const mockParams = [...scope.params, ...scopeExam.params, ...(mockId ? [mockId] : [])];
 
             const [rows] = await pool.query(`
                 SELECT qb.id AS question_id, qb.question_type, qb.marks,
@@ -1477,7 +1594,10 @@ exports.exportData = async (req, res) => {
 
         // ── Roster / compliance: the filtered screen, as a sheet ──────────
         if (type === 'roster' || type === 'students') {
-            const { sql, params } = buildRosterQuery(req.query, { scope: rosterScope(req) });
+            const { sql, params } = buildRosterQuery(req.query, {
+                scope: rosterScope(req),
+                exams: examScope(req, 'a.exam_id')
+            });
             const orderBy = ROSTER_SORTS[req.query.sort] || ROSTER_SORTS.attempts_asc;
             const [rows] = await pool.query(`SELECT * FROM (${sql}) AS r ORDER BY ${orderBy}`, params);
 
@@ -1492,6 +1612,7 @@ exports.exportData = async (req, res) => {
                     { header: 'Email', key: 'email', width: 30 },
                     { header: 'Programme', key: 'programme', width: 14 },
                     { header: 'Discipline', key: 'discipline', width: 14 },
+                    { header: 'Second Major', key: 'secondary_discipline', width: 14 },
                     { header: 'Signed In', width: 11, map: r => yesNo(r.student_id) },
                     { header: 'Mocks Taken', key: 'attempts', width: 13 },
                     { header: 'Distinct Exams', key: 'exams_attempted', width: 15 },
@@ -1505,20 +1626,26 @@ exports.exportData = async (req, res) => {
             });
         }
 
-        // ── Every roster student against every exam ───────────────────────
-        // One row per student per mock, including the zero rows. This is the
-        // sheet to sort and send to a department office.
+        // ── Every roster student against each of their exams ──────────────
+        // One row per student per mock offered to them, including the zero
+        // rows. This is the sheet to sort and send to a department office.
         if (type === 'matrix') {
             const scope = rosterScope(req, 'al');
-            const where = ['al.is_active = TRUE', scope.sql];
-            const params = [...scope.params];
+            const scopeExam = examScope(req, 'e.id');
+            const where = ['al.is_active = TRUE', scope.sql, scopeExam.sql];
+            const params = [...scope.params, ...scopeExam.params];
             if (req.query.programme) { where.push('al.programme = ?'); params.push(req.query.programme); }
-            if (req.query.discipline) { where.push('al.discipline = ?'); params.push(req.query.discipline); }
+            if (req.query.discipline) {
+                where.push('(al.discipline = ? OR al.secondary_discipline = ?)');
+                params.push(req.query.discipline, req.query.discipline);
+            }
             if (req.query.exam_id) { where.push('e.id = ?'); params.push(parseInt(req.query.exam_id, 10)); }
 
-            const [rows] = await pool.query(`
+            const [pairs] = await pool.query(`
                 SELECT al.roll_number, al.name, al.email, al.programme, al.discipline,
+                       al.secondary_discipline,
                        e.title AS exam_title, e.code AS exam_code,
+                       e.department, e.disciplines,
                        s.id AS student_id,
                        COUNT(a.id)            AS attempts,
                        MAX(a.score)           AS best_score,
@@ -1533,9 +1660,14 @@ exports.exportData = async (req, res) => {
                        ON a.student_id = s.id AND a.exam_id = e.id AND a.status = 'submitted'
                 WHERE ${where.join(' AND ')} AND e.is_active = 1
                 GROUP BY al.id, e.id, al.roll_number, al.name, al.email,
-                         al.programme, al.discipline, e.title, e.code, s.id
+                         al.programme, al.discipline, al.secondary_discipline,
+                         e.title, e.code, e.department, e.disciplines, s.id
                 ORDER BY al.name, e.title
             `, params);
+            // An exam not offered to a student is no gap in their record, so
+            // only keep it if they somehow sat it anyway.
+            const rows = pairs.filter(r =>
+                examServes(r, departmentsOf(r)) || Number(r.attempts) > 0);
 
             return sendWorkbook(res, {
                 sheetName: 'Student x Exam',
@@ -1548,6 +1680,7 @@ exports.exportData = async (req, res) => {
                     { header: 'Email', key: 'email', width: 30 },
                     { header: 'Programme', key: 'programme', width: 14 },
                     { header: 'Discipline', key: 'discipline', width: 14 },
+                    { header: 'Second Major', key: 'secondary_discipline', width: 14 },
                     { header: 'Exam', key: 'exam_title', width: 40 },
                     { header: 'Attempted', width: 11, map: r => yesNo(r.attempts) },
                     { header: 'Attempts', key: 'attempts', width: 10 },
@@ -1589,9 +1722,10 @@ exports.exportData = async (req, res) => {
         // ── Individual attempts (mock + legacy) ───────────────────────────
         if (type === 'attempts') {
             const scopeAttempt = studentScope(req, 'a.student_id');
+            const scopeExam = examScope(req, 'a.exam_id');
             const scopeResult = studentScope(req, 'r.student_id');
-            const where = ["a.status = 'submitted'", scopeAttempt.sql];
-            const params = [...scopeAttempt.params];
+            const where = ["a.status = 'submitted'", scopeAttempt.sql, scopeExam.sql];
+            const params = [...scopeAttempt.params, ...scopeExam.params];
             if (req.query.exam_id) { where.push('a.exam_id = ?'); params.push(parseInt(req.query.exam_id, 10)); }
             if (req.query.from) { where.push('a.submitted_at >= ?'); params.push(`${req.query.from} 00:00:00`); }
             if (req.query.to) { where.push('a.submitted_at <= ?'); params.push(`${req.query.to} 23:59:59`); }
@@ -1614,7 +1748,7 @@ exports.exportData = async (req, res) => {
                   FROM Test_Results r
                   JOIN Students s ON s.id = r.student_id
                   JOIN Tests t ON t.id = r.test_id
-                 WHERE ${scopeResult.sql}
+                 WHERE ${legacyScope(req).sql} AND ${scopeResult.sql}
                  ORDER BY created_at DESC
             `, [...params, ...scopeResult.params]);
 
@@ -1649,6 +1783,7 @@ exports.exportData = async (req, res) => {
         // ── Proctoring violations ─────────────────────────────────────────
         if (type === 'violations') {
             const scope = studentScope(req, 'v.student_id');
+            const scopeTest = violationScope(req, 'v');
             const [rows] = await pool.query(`
                 SELECT v.id, s.name, s.roll_number, s.email, s.branch,
                        COALESCE(t.title, e.title, '—') AS test_title,
@@ -1658,9 +1793,9 @@ exports.exportData = async (req, res) => {
                   LEFT JOIN Tests t ON t.id = v.test_id
                   LEFT JOIN Exam_Attempts a ON a.id = v.attempt_id
                   LEFT JOIN Mock_Exams e ON e.id = a.exam_id
-                 WHERE ${scope.sql}
+                 WHERE ${scope.sql} AND ${scopeTest.sql}
                  ORDER BY v.created_at DESC
-            `, scope.params);
+            `, [...scope.params, ...scopeTest.params]);
 
             return sendWorkbook(res, {
                 sheetName: 'Violations',
@@ -1696,12 +1831,13 @@ exports.getTestsList = async (req, res) => {
         const pool = await getPool;
         // Values are prefixed with the kind so getAttempts/getWarnings can tell a
         // legacy test id from a mock exam id (they're separate id spaces).
+        const scopeExam = examScope(req, 'id');
         const [tests] = await pool.query(`
-            SELECT CONCAT('legacy:', id) AS id, title FROM Tests
+            SELECT CONCAT('legacy:', id) AS id, title FROM Tests WHERE ${legacyScope(req).sql}
             UNION ALL
-            SELECT CONCAT('mock:', id) AS id, title FROM Mock_Exams WHERE is_active = 1
+            SELECT CONCAT('mock:', id) AS id, title FROM Mock_Exams WHERE is_active = 1 AND ${scopeExam.sql}
             ORDER BY title
-        `);
+        `, scopeExam.params);
         res.json({ tests });
     } catch (error) {
         console.error('Admin Tests List Error:', error);

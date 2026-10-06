@@ -1,5 +1,6 @@
 const getPool = require('../config/db');
 const { formatAnswer, isAnswerCorrect } = require('../utils/answerKey');
+const { examServes, studentDepartments } = require('../utils/departments');
 
 /**
  * mockController.js — the randomised mock-exam flow.
@@ -68,14 +69,17 @@ function secondsRemaining(attempt) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/tests/mock  — every published mock exam, with this student's history
+// GET /api/tests/mock  — the published mock exams of this student's
+// department(s), with their history. A dual-major student gets both majors'.
 // ---------------------------------------------------------------------------
 exports.listMockExams = async (req, res) => {
     try {
         const pool = await getPool;
         const studentId = req.user.id;
+        const departments = await studentDepartments(pool, studentId);
+        const primary = departments[0];
 
-        const [exams] = await pool.query(
+        const [allExams] = await pool.query(
             `SELECT e.id, e.code, e.department, e.title, e.description,
                     e.duration_minutes, e.total_questions, e.disciplines,
                     COUNT(DISTINCT s.id) AS section_count,
@@ -90,6 +94,7 @@ exports.listMockExams = async (req, res) => {
              GROUP BY e.id
              ORDER BY e.title`
         );
+        const exams = allExams.filter(e => examServes(e, departments));
 
         const [history] = await pool.query(
             `SELECT exam_id,
@@ -111,14 +116,7 @@ exports.listMockExams = async (req, res) => {
         );
         const openByExam = Object.fromEntries(inProgress.map(a => [a.exam_id, a]));
 
-        // Used only to sort the student's own department to the top of the list.
-        const [[student]] = await pool.query(
-            'SELECT discipline, branch FROM Students WHERE id = ?', [studentId]
-        );
-        const myDiscipline = String(student?.discipline || student?.branch || '').trim().toUpperCase();
-
         const payload = exams.map(e => {
-            const disciplines = String(e.disciplines || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
             const open = openByExam[e.id];
             return {
                 id: e.id,
@@ -129,7 +127,9 @@ exports.listMockExams = async (req, res) => {
                 total_questions: e.total_questions,
                 section_count: e.section_count,
                 bank_size: e.bank_size,
-                is_my_department: Boolean(myDiscipline && (disciplines.includes(myDiscipline) || e.department.toUpperCase() === myDiscipline)),
+                // Every exam listed is the student's; for a dual major, false
+                // marks the one that is there for their second major.
+                is_my_department: Boolean(primary && examServes(e, [primary])),
                 attempts: byExam[e.id]?.attempts || 0,
                 best_score: byExam[e.id]?.best_score ?? null,
                 last_attempt_at: byExam[e.id]?.last_attempt_at ?? null,
@@ -161,6 +161,12 @@ exports.startAttempt = async (req, res) => {
             'SELECT * FROM Mock_Exams WHERE id = ? AND is_active = 1', [examId]
         );
         if (!exam) return res.status(404).json({ message: 'Mock exam not found' });
+
+        // The dashboard only lists the student's own department's exams; this
+        // stops a hand-made request from starting anyone else's.
+        if (!examServes(exam, await studentDepartments(pool, studentId))) {
+            return res.status(403).json({ message: 'This mock test is not for your department.' });
+        }
 
         // Resume rather than start over if this student already has one open.
         const [[open]] = await pool.query(

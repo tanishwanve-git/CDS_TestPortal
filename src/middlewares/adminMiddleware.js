@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const getPool = require('../config/db');
+const { examIdsFor } = require('../utils/departments');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cds_super_secret_key_2026';
@@ -16,7 +17,8 @@ const ADMIN_EMAILS = new Set(
  * Who may open the console, and how much of it they see.
  *
  *   { role: 'admin', departments: [] }            — everything
- *   { role: 'hod', departments: ['Civil', …] }    — only those departments' students
+ *   { role: 'hod', departments: ['Civil', …],     — only those departments' students,
+ *     examIds: [3, …] }                              and only their mock tests
  *   null                                           — no console access
  *
  * Admins come from ADMIN_EMAILS; HODs from the department_heads table. An
@@ -37,7 +39,13 @@ async function resolveConsoleAccess(rawEmail) {
         [email]
     );
     if (!rows.length) return null;
-    return { role: 'hod', name: rows[0].name, departments: rows.map(r => r.department) };
+    const departments = rows.map(r => r.department);
+    return {
+        role: 'hod',
+        name: rows[0].name,
+        departments,
+        examIds: await examIdsFor(pool, departments)
+    };
 }
 
 exports.resolveConsoleAccess = resolveConsoleAccess;

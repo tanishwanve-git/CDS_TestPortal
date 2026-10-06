@@ -288,6 +288,12 @@ async function initTables(pool) {
         await pool.query('ALTER TABLE Mock_Exam_Sections ADD COLUMN source_department VARCHAR(20) NULL AFTER section_name;');
     } catch (e) { /* column already exists */ }
 
+    // A dual-major student's second department. They see the mock tests of both,
+    // and the heads of both see them. NULL for everyone else.
+    try {
+        await pool.query('ALTER TABLE allowed_students ADD COLUMN secondary_discipline VARCHAR(100) NULL AFTER discipline;');
+    } catch (e) { /* column already exists */ }
+
     // Ensure programme & discipline exist on Students table if used
     try {
         await pool.query(`ALTER TABLE Students ADD COLUMN programme VARCHAR(100) NULL, ADD COLUMN discipline VARCHAR(100) NULL;`);

@@ -121,8 +121,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (mockGrid) {
             mockGrid.innerHTML = allMockExams.length === 0
                 ? `<div class="panel"><div class="empty-state">
-                       <h3>No mock exams published yet</h3>
-                       <p>An administrator needs to import the question bank.</p>
+                       <h3>No mock test for your department yet</h3>
+                       <p>Mock tests appear here once one is published for your discipline.</p>
                    </div></div>`
                 : allMockExams.map(renderMockCard).join('');
         }
@@ -293,7 +293,9 @@ function renderMockCard(exam) {
             <div class="exam-card-body">
                 <div class="exam-title">
                     <h3>${escapeHtml(exam.title)}</h3>
-                    ${exam.is_my_department ? '<span class="tag tag-accent">Your branch</span>' : ''}
+                    ${exam.is_my_department
+                        ? '<span class="tag tag-accent">Your branch</span>'
+                        : '<span class="tag tag-quiet">Second major</span>'}
                 </div>
                 <div class="exam-spec">
                     ${exam.total_questions} questions &middot; ${exam.duration_minutes} min &middot; ${sectionLabel}

@@ -40,8 +40,12 @@ cleaned_df = pd.DataFrame(
         "email": df["Email ID"].astype(str).str.strip().str.lower(),
         "programme": df[prog_col_name].astype(str).str.strip(),
         "discipline": df["Disp."].astype(str).str.strip().map(lambda x: disp_mapping.get(str(x).strip(), str(x).strip())),
+        # A dual major's second department ("Sec"); blank for everyone else.
+        "secondary_discipline": df["Sec"].fillna("").astype(str).str.strip().map(lambda x: disp_mapping.get(x, x)),
     }
 )
+# Only a second major that differs from the first is a second department.
+cleaned_df.loc[cleaned_df["secondary_discipline"] == cleaned_df["discipline"], "secondary_discipline"] = ""
 
 # Filter out rows with invalid or empty emails/rolls if any
 cleaned_df = cleaned_df.dropna(subset=["email", "roll_number"])
@@ -54,10 +58,13 @@ with open("seed_students.sql", "w", encoding="utf-8") as f:
         name_escaped = row['name'].replace("'", "''")
         prog_escaped = row['programme'].replace("'", "''")
         disp_escaped = row['discipline'].replace("'", "''")
+        second = row['secondary_discipline']
+        second_sql = "'" + second.replace("'", "''") + "'" if second else "NULL"
         f.write(
-            f"INSERT INTO allowed_students (roll_number, name, email, programme, discipline) "
-            f"VALUES ('{row['roll_number']}', '{name_escaped}', '{row['email']}', '{prog_escaped}', '{disp_escaped}') "
-            f"ON DUPLICATE KEY UPDATE name = VALUES(name), programme = VALUES(programme), discipline = VALUES(discipline);\n"
+            f"INSERT INTO allowed_students (roll_number, name, email, programme, discipline, secondary_discipline) "
+            f"VALUES ('{row['roll_number']}', '{name_escaped}', '{row['email']}', '{prog_escaped}', '{disp_escaped}', {second_sql}) "
+            f"ON DUPLICATE KEY UPDATE name = VALUES(name), programme = VALUES(programme), discipline = VALUES(discipline), "
+            f"secondary_discipline = VALUES(secondary_discipline);\n"
         )
 
 print(f"✅ Successfully generated seed_students.sql with {len(cleaned_df)} records.")
