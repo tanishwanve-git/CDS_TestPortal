@@ -68,6 +68,17 @@
 
             <main>
 
+                <!-- Company mock tests: only for the roll numbers an admin listed.
+                     Hidden entirely when there are none. -->
+                <section id="companyTestsSection" style="display:none; margin-bottom:36px;">
+                    <div class="section-head">
+                        <h2>Company mock tests</h2>
+                    </div>
+                    <p class="section-note">Scheduled tests you have been selected for. Each one is open only
+                        between its start and end time.</p>
+                    <div class="exam-grid" id="companyTestsGrid"></div>
+                </section>
+
                 <section>
                     <div class="section-head">
                         <h2>Mock exams</h2>
@@ -129,7 +140,7 @@
                         <span class="spec-value" id="modalDuration">0 min</span>
                     </div>
                     <div class="spec-item">
-                        <span class="spec-label">Sections</span>
+                        <span class="spec-label" id="modalSectionsLabel">Sections</span>
                         <span class="spec-value" id="modalSections">1</span>
                     </div>
                     <div class="spec-item">
@@ -138,6 +149,18 @@
                     </div>
                 </div>
 
+                <!-- Company mock: the admin's instructions, which must be
+                     acknowledged before the start button unlocks. -->
+                <div id="companyRules" style="display:none;">
+                    <p class="eyebrow">Instructions</p>
+                    <div class="instructions-text" id="companyInstructions"></div>
+                    <label class="ack-row">
+                        <input type="checkbox" id="ackCheckbox">
+                        <span>I have read and understood all the instructions above and I will follow them.</span>
+                    </label>
+                </div>
+
+                <div id="standardRules">
                 <p class="eyebrow">Rules</p>
                 <ul class="rules-list">
                     <li><strong>Academic integrity.</strong> Using AI tools or external websites is prohibited.</li>
@@ -153,6 +176,7 @@
 
                 <div class="notice notice-alert" style="margin-top:16px;">
                     Starting the test means you accept these rules.
+                </div>
                 </div>
             </div>
 

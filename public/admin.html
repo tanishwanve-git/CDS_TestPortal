@@ -59,6 +59,7 @@
                 <div class="nav-item" data-section="allowlist" id="nav-allowlist">Allow list</div>
                 <!-- Admin only: removed from the page for a head of department. -->
                 <div class="nav-item" data-section="departments" id="nav-departments" data-admin-only>Departments &amp; HODs</div>
+                <div class="nav-item" data-section="company" id="nav-company">Company mocks</div>
                 <div class="nav-item" data-section="coverage" id="nav-coverage">Mock coverage</div>
                 <div class="nav-item" data-section="tests" id="nav-tests">Tests</div>
                 <div class="nav-item" data-section="attempts" id="nav-attempts">Attempts</div>
@@ -505,6 +506,171 @@
                                 </table>
                             </div>
                             <div class="pagination" id="allowPagination"></div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ══════════════════════════════════════════════
+                     COMPANY MOCK TESTS
+                     Admins create and edit; a HOD sees the list and
+                     their own students' results, read-only.
+                ══════════════════════════════════════════════ -->
+                <section class="admin-section" id="section-company">
+
+                    <!-- List -->
+                    <div class="admin-card" id="cmListCard">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title">Company mock tests</div>
+                            <button type="button" class="btn btn-primary btn-sm" data-admin-only
+                                onclick="openCompanyForm()">New company mock</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <p class="muted" style="font-size:13px; margin:0 0 14px;">
+                                Tests built from the existing question bank, shown only to the roll numbers you
+                                list, between a start and an end time. Every student of a department gets the
+                                same questions, in a different order.
+                            </p>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Test</th>
+                                            <th>Window (IST)</th>
+                                            <th>Paper</th>
+                                            <th>Eligible</th>
+                                            <th>Submitted</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cmTableBody">
+                                        <tr>
+                                            <td colspan="7" class="loading-spinner">
+                                                <div class="spinner"></div>Loading…
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Create / edit (admin only) -->
+                    <div class="admin-card" id="cmFormCard" style="display:none;" data-admin-only>
+                        <div class="admin-card-header">
+                            <div class="admin-card-title" id="cmFormTitle">New company mock</div>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="closeCompanyForm()">Back to list</button>
+                        </div>
+                        <div class="admin-card-body">
+                            <form id="cmForm" class="cm-form" novalidate>
+                                <input type="hidden" id="cmId">
+                                <div class="cm-lock-note" id="cmLockNote" style="display:none;">
+                                    Students have already started this test, so the question source, number of
+                                    questions, duration and start time are locked.
+                                </div>
+
+                                <div class="filter-grid" style="border-bottom:none; margin-bottom:0;">
+                                    <label class="filter-field cm-span-all">
+                                        <span>Title *</span>
+                                        <input type="text" class="filter-input" id="cmTitle" maxlength="255"
+                                            placeholder="e.g. Tata Steel placement mock" required>
+                                    </label>
+                                    <label class="filter-field cm-span-2">
+                                        <span>Questions from *</span>
+                                        <select class="filter-select" id="cmSource" data-lockable></select>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>No. of questions *</span>
+                                        <input type="number" class="filter-input" id="cmQuestions" min="1" max="200"
+                                            value="30" required data-lockable>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Duration (min) *</span>
+                                        <input type="number" class="filter-input" id="cmDuration" min="1" max="600"
+                                            value="60" required data-lockable>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Attempts allowed *</span>
+                                        <input type="number" class="filter-input" id="cmMaxAttempts" min="1" max="50"
+                                            value="1" required>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Opens at (IST) *</span>
+                                        <input type="datetime-local" class="filter-input" id="cmStartsAt" required data-lockable>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Closes at (IST) *</span>
+                                        <input type="datetime-local" class="filter-input" id="cmEndsAt" required>
+                                    </label>
+                                    <div class="filter-field">
+                                        <span>Visible to students</span>
+                                        <label class="cm-check-row"><input type="checkbox" id="cmActive" checked> Active</label>
+                                    </div>
+                                </div>
+                                <p class="muted cm-hint" id="cmSourceHint"></p>
+
+                                <label class="filter-field cm-block">
+                                    <span>Eligible roll numbers *</span>
+                                    <textarea id="cmRolls" rows="5"
+                                        placeholder="Paste roll numbers separated by commas, spaces or new lines (e.g. a column copied from Excel)"></textarea>
+                                </label>
+                                <div class="cm-roll-status" id="cmRollStatus"></div>
+
+                                <label class="filter-field cm-block">
+                                    <span>Instructions shown before the test *</span>
+                                    <textarea id="cmInstructions" rows="10"></textarea>
+                                </label>
+                                <p class="muted cm-hint">
+                                    {N}, {T} and {END} are filled in with the number of questions, the duration and the
+                                    closing time. Students must tick &ldquo;I have read and understood all the instructions
+                                    above and I will follow them&rdquo; before they can start.
+                                    <button type="button" class="btn btn-ghost btn-sm" onclick="resetCompanyInstructions()">Reset to default text</button>
+                                </p>
+
+                                <div class="cm-form-error" id="cmFormError" style="display:none;"></div>
+
+                                <div class="cm-form-actions">
+                                    <button type="submit" class="btn btn-primary btn-sm" id="cmSubmitBtn">Create test</button>
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="closeCompanyForm()">Cancel</button>
+                                    <button type="button" class="btn btn-danger btn-sm" id="cmDeleteBtn" style="display:none;"
+                                        onclick="deleteCompanyMock()">Delete test</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="admin-card" id="cmResultsCard" style="display:none;">
+                        <div class="admin-card-header">
+                            <div class="admin-card-title" id="cmResultsTitle">Results</div>
+                            <div class="cm-header-actions">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="exportCompanyResults()">Download Excel</button>
+                                <button type="button" class="btn btn-outline btn-sm" data-admin-only id="cmResultsEditBtn">Edit test</button>
+                                <button type="button" class="btn btn-outline btn-sm" onclick="closeCompanyResults()">Back to list</button>
+                            </div>
+                        </div>
+                        <div class="admin-card-body">
+                            <div class="cm-results-meta" id="cmResultsMeta"></div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Rank</th>
+                                            <th>Student</th>
+                                            <th>Roll no.</th>
+                                            <th>Department</th>
+                                            <th>Status</th>
+                                            <th>Score</th>
+                                            <th>Correct / wrong</th>
+                                            <th>Time</th>
+                                            <th>Attempts</th>
+                                            <th>Violations</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cmResultsBody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 

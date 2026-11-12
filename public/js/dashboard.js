@@ -7,6 +7,7 @@ const API_BASE = `${BASE_PATH}/api`;
 
 let allMockExams = [];     // cache for the rules modal
 let allAvailableTests = []; // legacy fixed-paper tests
+let allCompanyTests = [];   // company mock tests this roll number is on
 
 document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
@@ -87,9 +88,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const authHeaders = { 'Authorization': `Bearer ${token}` };
 
-        const [dashRes, mockRes] = await Promise.all([
+        const [dashRes, mockRes, companyRes] = await Promise.all([
             fetch(`${API_BASE}/users/dashboard`, { headers: authHeaders }),
-            fetch(`${API_BASE}/tests/mock`, { headers: authHeaders })
+            fetch(`${API_BASE}/tests/mock`, { headers: authHeaders }),
+            fetch(`${API_BASE}/tests/company`, { headers: authHeaders }).catch(() => null)
         ]);
 
         if (!dashRes.ok) throw new Error(dashRes.status);
@@ -99,6 +101,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // The mock endpoint is new; a portal running an older server still renders.
         allMockExams = mockRes.ok ? (await mockRes.json()).exams : [];
+        allCompanyTests = companyRes && companyRes.ok ? (await companyRes.json()).tests : [];
+
+        // ---------- Company mock tests (only shown if this roll number has any) ----------
+        const companySection = document.getElementById('companyTestsSection');
+        const companyGrid = document.getElementById('companyTestsGrid');
+        if (companySection && companyGrid) {
+            companySection.style.display = allCompanyTests.length ? '' : 'none';
+            companyGrid.innerHTML = allCompanyTests.map(renderCompanyCard).join('');
+        }
 
         // ---------- Stats ----------
         // "Taken" / "Available" is meant to read as a partition of the
@@ -219,6 +230,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // A company mock's start button stays locked until the student confirms
+    // they have read the instructions.
+    const ackCheckbox = document.getElementById('ackCheckbox');
+    if (ackCheckbox && startFinalBtn) {
+        ackCheckbox.onchange = () => {
+            if (localStorage.getItem('pendingIsCompany') === '1') {
+                startFinalBtn.disabled = !ackCheckbox.checked;
+            }
+        };
+    }
+
     if (startFinalBtn) {
         startFinalBtn.onclick = async () => {
             const pendingExamId = localStorage.getItem('pendingMockExamId');
@@ -234,12 +256,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // page — if the draw fails there is still somewhere to show it.
                     startFinalBtn.innerText = 'Preparing paper…';
 
+                    const isCompany = localStorage.getItem('pendingIsCompany') === '1';
+                    if (isCompany && !(ackCheckbox && ackCheckbox.checked)) {
+                        startFinalBtn.disabled = true;
+                        startFinalBtn.innerText = originalLabel;
+                        return;
+                    }
                     const res = await fetch(`${API_BASE}/tests/mock/${pendingExamId}/start`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
-                        }
+                        },
+                        // The server refuses to start a company mock without this.
+                        body: JSON.stringify({ acknowledged: isCompany ? ackCheckbox.checked : undefined })
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.message || 'Could not start the exam');
@@ -247,6 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     localStorage.setItem('currentAttemptId', String(data.attemptId));
                     localStorage.removeItem('currentTestId');
                     localStorage.removeItem('pendingMockExamId');
+                    localStorage.removeItem('pendingIsCompany');
                     arenaPage = 'exam-arena.html';
                 } else if (pendingTestId) {
                     localStorage.setItem('currentTestId', pendingTestId);
@@ -331,11 +362,13 @@ function startMockExam(examId) {
     document.getElementById('modalTestTitle').innerText = exam.title;
     document.getElementById('modalQCount').innerText = exam.total_questions;
     document.getElementById('modalDuration').innerText = `${exam.duration_minutes} min`;
+    setRulesMode(null);
     const sectionsEl = document.getElementById('modalSections');
     if (sectionsEl) sectionsEl.innerText = exam.section_count;
 
     localStorage.setItem('pendingMockExamId', String(examId));
     localStorage.removeItem('pendingTestId');
+    localStorage.removeItem('pendingIsCompany');
 
     document.getElementById('rulesModal').classList.add('active');
 }
@@ -348,11 +381,13 @@ function startTest(testId) {
     document.getElementById('modalTestTitle').innerText = test.title;
     document.getElementById('modalQCount').innerText = test.total_questions;
     document.getElementById('modalDuration').innerText = `${test.duration_minutes} min`;
+    setRulesMode(null);
     const sectionsEl = document.getElementById('modalSections');
     if (sectionsEl) sectionsEl.innerText = '—';
 
     localStorage.setItem('pendingTestId', String(testId));
     localStorage.removeItem('pendingMockExamId');
+    localStorage.removeItem('pendingIsCompany');
 
     document.getElementById('rulesModal').classList.add('active');
 }
@@ -369,4 +404,109 @@ function goToReview(resultId, testId) {
     localStorage.setItem('reviewTestId', testId);
     localStorage.removeItem('reviewAttemptId');
     window.location.href = `${BASE_PATH}/review.html`;
+}
+
+// ---------- Company mock tests ----------
+
+function formatIst(ms) {
+    if (!ms) return '—';
+    return new Date(Number(ms)).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+function renderCompanyCard(test) {
+    const resuming = Boolean(test.in_progress_attempt_id);
+    const allowed = test.max_attempts || 1;
+    const scoreLine = test.best_score !== null && test.best_score !== undefined
+        ? `Your score ${formatScore(Number(test.best_score))} / ${formatScore(Number(test.max_score))}`
+        : 'Not attempted';
+    const attemptsLine = `${test.attempts_used} of ${allowed} attempt${allowed === 1 ? '' : 's'} used`;
+    const reviewBtn = test.best_attempt_id
+        ? `<button type="button" class="btn btn-outline btn-block" onclick="goToMockReview(${test.best_attempt_id})">View result</button>`
+        : '';
+
+    let tag;
+    let foot;
+    if (test.state === 'upcoming') {
+        tag = '<span class="tag tag-quiet">Upcoming</span>';
+        foot = `<div class="foot-note">Opens ${escapeHtml(formatIst(test.starts_at_ms))}</div>`;
+    } else if (test.state === 'closed') {
+        tag = '<span class="tag tag-quiet">Closed</span>';
+        foot = reviewBtn || '<div class="foot-note">Closed. You did not attempt this test.</div>';
+    } else if (resuming) {
+        tag = '<span class="tag tag-accent">Open</span>';
+        foot = `<button type="button" class="btn btn-primary btn-block" onclick="startCompanyTest(${test.id})">Resume attempt</button>`;
+    } else if (test.attempts_left > 0) {
+        tag = '<span class="tag tag-accent">Open</span>';
+        foot = `<button type="button" class="btn btn-primary btn-block" onclick="startCompanyTest(${test.id})">${test.attempts_used > 0 ? 'Re-attempt' : 'Start test'}</button>`;
+    } else {
+        tag = '<span class="tag tag-quiet">Completed</span>';
+        foot = reviewBtn || '<div class="foot-note">No attempts left.</div>';
+    }
+
+    return `
+        <div class="exam-card is-company${test.state === 'closed' ? ' is-closed' : ''}">
+            <div class="exam-card-body">
+                <div class="exam-title">
+                    <h3>${escapeHtml(test.title)}</h3>
+                    ${tag}
+                </div>
+                <div class="exam-spec">
+                    ${test.total_questions} questions &middot; ${test.duration_minutes} min
+                </div>
+                <div class="exam-spec" style="margin-top:4px;">
+                    ${escapeHtml(formatIst(test.starts_at_ms))} &ndash; ${escapeHtml(formatIst(test.ends_at_ms))}
+                </div>
+                <div class="exam-history">${scoreLine} &middot; ${attemptsLine}</div>
+            </div>
+            <div class="exam-card-foot">${foot}</div>
+        </div>
+    `;
+}
+
+// Switches the pre-start modal between the standard rules and a company
+// mock's own instructions (with the required acknowledgement).
+function setRulesMode(companyTest) {
+    const standard = document.getElementById('standardRules');
+    const company = document.getElementById('companyRules');
+    const ack = document.getElementById('ackCheckbox');
+    const startBtn = document.getElementById('startFinalBtn');
+    const label = document.getElementById('modalSectionsLabel');
+    const sections = document.getElementById('modalSections');
+
+    if (companyTest) {
+        if (standard) standard.style.display = 'none';
+        if (company) company.style.display = '';
+        document.getElementById('companyInstructions').textContent = companyTest.instructions || '';
+        if (ack) ack.checked = false;
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerText = companyTest.in_progress_attempt_id ? 'Resume test' : 'Start test';
+        }
+        if (label) label.innerText = 'Closes';
+        if (sections) sections.innerText = formatIst(companyTest.ends_at_ms);
+    } else {
+        if (standard) standard.style.display = '';
+        if (company) company.style.display = 'none';
+        if (startBtn) { startBtn.disabled = false; startBtn.innerText = 'Start test'; }
+        if (label) label.innerText = 'Sections';
+    }
+}
+
+function startCompanyTest(examId) {
+    const test = allCompanyTests.find(t => t.id === examId);
+    if (!test) return;
+
+    document.getElementById('modalTestTitle').innerText = test.title;
+    document.getElementById('modalQCount').innerText = test.total_questions;
+    document.getElementById('modalDuration').innerText = `${test.duration_minutes} min`;
+    setRulesMode(test);
+
+    localStorage.setItem('pendingMockExamId', String(examId));
+    localStorage.setItem('pendingIsCompany', '1');
+    localStorage.removeItem('pendingTestId');
+
+    document.getElementById('rulesModal').classList.add('active');
 }

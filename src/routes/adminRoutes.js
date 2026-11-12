@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const companyMockController = require('../controllers/companyMockController');
 const { consoleProtect, adminOnly } = require('../middlewares/adminMiddleware');
 
 // Every route below is open to admins (ADMIN_EMAILS) and to heads of department
@@ -33,6 +34,17 @@ router.get('/departments', consoleProtect, adminOnly, adminController.getDepartm
 router.post('/hods', consoleProtect, adminOnly, adminController.createHod);
 router.put('/hods/:id', consoleProtect, adminOnly, adminController.updateHod);
 router.delete('/hods/:id', consoleProtect, adminOnly, adminController.deleteHod);
+
+// Company mock tests — admins create and manage them; a HOD sees the list and
+// results of their own students, read-only. Fixed paths before '/:id'.
+router.get('/company-mocks', consoleProtect, companyMockController.listCompanyMocks);
+router.get('/company-mocks/defaults', consoleProtect, adminOnly, companyMockController.getDefaults);
+router.post('/company-mocks/validate-rolls', consoleProtect, adminOnly, companyMockController.validateRolls);
+router.post('/company-mocks', consoleProtect, adminOnly, companyMockController.createCompanyMock);
+router.get('/company-mocks/:id', consoleProtect, companyMockController.getCompanyMock);
+router.get('/company-mocks/:id/export', consoleProtect, companyMockController.exportCompanyMock);
+router.put('/company-mocks/:id', consoleProtect, adminOnly, companyMockController.updateCompanyMock);
+router.delete('/company-mocks/:id', consoleProtect, adminOnly, companyMockController.deleteCompanyMock);
 
 // Tests
 router.get('/tests', consoleProtect, adminController.getTests);

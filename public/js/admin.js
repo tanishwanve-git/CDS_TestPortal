@@ -241,6 +241,7 @@ function applyRole() {
     sectionTitles.students[1] = 'Mock compliance across your department';
     sectionTitles.allowlist[1] = 'Who in your department may sign in to the portal';
     sectionTitles.tests[1] = "Test-level statistics for your department's students";
+    sectionTitles.company[1] = "Company mock results of your department's students";
     document.getElementById('topbarSubtitle').textContent = sectionTitles.overview[1];
 }
 
@@ -250,6 +251,7 @@ const sectionTitles = {
     overview:  ['Overview',  'Real-time portal analytics'],
     students:  ['Students',  'Mock compliance across the whole roster'],
     allowlist: ['Allow list', 'Who is permitted to sign in to the portal'],
+    company:   ['Company mocks', 'Roll-number-only mock tests with a fixed window'],
     departments: ['Departments & HODs', 'Who heads each department, and what their console covers'],
     coverage:  ['Mock coverage', 'Who has sat each mock exam, and who has not'],
     tests:     ['Tests',     'Test-level statistics and details'],
@@ -288,6 +290,7 @@ function refreshCurrentSection() {
         case 'overview':  fetchAndLoadOverview(); break;
         case 'students':  loadStudents(pages.students); break;
         case 'allowlist': loadAllowlist(pages.allowlist); break;
+        case 'company':   loadCompanyMocks(); break;
         case 'departments': loadDepartments(); break;
         case 'coverage':  loadCoverage(); break;
         case 'tests':     loadTests(); break;
@@ -1380,3 +1383,353 @@ function renderPagination(containerId, total, limit, currentPage, loadFn) {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initAuth);
+
+// ── Company mock tests ────────────────────────────────────────────────────────
+//
+// One section, three views: the list, the create/edit form (admins only) and a
+// test's results. The server enforces every rule; the form only mirrors them
+// (e.g. disabling fields that are locked once students have started).
+
+const cm = {
+    defaults: null,      // { instructions, sources: [{ value, label }] } — admins only
+    currentId: null,     // test shown in the form or results view
+    rollTimer: null,
+    rollSeq: 0
+};
+
+const CM_STATE_BADGE = {
+    open:     '<span class="badge badge-success">Open</span>',
+    upcoming: '<span class="badge badge-info">Upcoming</span>',
+    closed:   '<span class="badge badge-neutral">Closed</span>',
+    inactive: '<span class="badge badge-danger">Inactive</span>'
+};
+
+const CM_STATUS_BADGE = {
+    submitted:   '<span class="badge badge-success">Submitted</span>',
+    in_progress: '<span class="badge badge-warning">In progress</span>',
+    not_started: '<span class="badge badge-neutral">Not started</span>'
+};
+
+// Times are IST wall clock everywhere in this feature, whatever the
+// browser's own zone is.
+function cmFmtIst(ms) {
+    if (!ms) return '—';
+    return new Date(Number(ms)).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
+// A datetime-local value ("2026-11-15T10:00") for epoch ms, in IST.
+function cmIstInputValue(ms) {
+    return new Date(ms + 330 * 60 * 1000).toISOString().slice(0, 16);
+}
+
+function cmSourceLabel(source) {
+    if (source === 'OWN') return "Student's own dept";
+    const match = cm.defaults?.sources.find(s => s.value === source);
+    return match ? match.label : source;
+}
+
+function cmShow(view) {
+    document.getElementById('cmListCard').style.display = view === 'list' ? '' : 'none';
+    const form = document.getElementById('cmFormCard');
+    if (form) form.style.display = view === 'form' ? '' : 'none';
+    document.getElementById('cmResultsCard').style.display = view === 'results' ? '' : 'none';
+}
+
+async function cmLoadDefaults() {
+    if (cm.defaults || access.role !== 'admin') return cm.defaults;
+    cm.defaults = await apiFetch('/company-mocks/defaults');
+    const select = document.getElementById('cmSource');
+    select.innerHTML = cm.defaults.sources
+        .map(s => `<option value="${escHtml(s.value)}">${escHtml(s.label)}</option>`).join('');
+    return cm.defaults;
+}
+
+async function loadCompanyMocks() {
+    cmShow('list');
+    const tbody = document.getElementById('cmTableBody');
+    tbody.innerHTML = `<tr><td colspan="7" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
+    try {
+        await cmLoadDefaults().catch(() => null);
+        const { tests } = await apiFetch('/company-mocks');
+        if (!tests.length) {
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+                ${access.role === 'admin'
+                    ? 'No company mock tests yet. Use "New company mock" to create one.'
+                    : 'No company mock test includes students of your department yet.'}
+            </div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = tests.map(t => `
+            <tr>
+                <td>
+                    <div class="name-cell">${escHtml(t.title)}</div>
+                    <div class="sub-text">${escHtml(t.code)}${t.created_by ? ' · by ' + escHtml(t.created_by) : ''}</div>
+                </td>
+                <td>
+                    <div>${cmFmtIst(t.starts_at_ms)}</div>
+                    <div class="sub-text">to ${cmFmtIst(t.ends_at_ms)}</div>
+                </td>
+                <td>
+                    <div>${t.total_questions} Q · ${t.duration_minutes} min</div>
+                    <div class="sub-text">${escHtml(cmSourceLabel(t.question_source))} · ${t.max_attempts || 1} attempt${(t.max_attempts || 1) === 1 ? '' : 's'}</div>
+                </td>
+                <td class="num">${t.eligible_count}</td>
+                <td class="num">${t.submitted_count}</td>
+                <td>${CM_STATE_BADGE[t.state] || escHtml(t.state)}</td>
+                <td style="white-space:nowrap;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="openCompanyResults(${t.id})">Results</button>
+                    ${access.role === 'admin'
+                        ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openCompanyForm(${t.id})">Edit</button>`
+                        : ''}
+                </td>
+            </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
+    }
+}
+
+function cmSetError(message, details = {}) {
+    const box = document.getElementById('cmFormError');
+    if (!message) { box.style.display = 'none'; box.textContent = ''; return; }
+    const lines = [message];
+    if (details.unknown?.length) lines.push(`Not on the allow list: ${details.unknown.join(', ')}`);
+    if (details.inactive?.length) lines.push(`Deactivated on the allow list: ${details.inactive.join(', ')}`);
+    if (details.no_bank?.length) lines.push(`No question bank for their department: ${details.no_bank.join(', ')}`);
+    box.textContent = lines.join('\n');
+    box.style.display = 'block';
+}
+
+function cmLock(locked) {
+    document.getElementById('cmLockNote').style.display = locked ? 'block' : 'none';
+    document.querySelectorAll('#cmForm [data-lockable]').forEach(el => { el.disabled = locked; });
+}
+
+function cmUpdateSourceHint() {
+    const source = document.getElementById('cmSource').value;
+    document.getElementById('cmSourceHint').textContent = source === 'OWN'
+        ? "Each student gets a paper from their own (primary) department, in the same section mix as that department's mock test. Everyone in a department gets the same questions."
+        : 'Every student gets the same paper from this department, in the same section mix as its mock test.';
+}
+
+async function openCompanyForm(id = null) {
+    try {
+        await cmLoadDefaults();
+    } catch (e) {
+        return showToast('Could not load the form: ' + e.message, 'error');
+    }
+    cm.currentId = id;
+    cmSetError(null);
+    const form = document.getElementById('cmForm');
+    form.reset();
+    document.getElementById('cmId').value = id || '';
+    document.getElementById('cmRollStatus').innerHTML = '';
+    cmLock(false);
+
+    if (id) {
+        let data;
+        try {
+            data = await apiFetch(`/company-mocks/${id}`);
+        } catch (e) {
+            return showToast('Could not load the test: ' + e.message, 'error');
+        }
+        const t = data.test;
+        document.getElementById('cmFormTitle').textContent = `Edit: ${t.title}`;
+        document.getElementById('cmSubmitBtn').textContent = 'Save changes';
+        document.getElementById('cmTitle').value = t.title;
+        document.getElementById('cmSource').value = t.question_source;
+        document.getElementById('cmQuestions').value = t.total_questions;
+        document.getElementById('cmDuration').value = t.duration_minutes;
+        document.getElementById('cmMaxAttempts').value = t.max_attempts || 1;
+        document.getElementById('cmStartsAt').value = t.starts_at;
+        document.getElementById('cmEndsAt').value = t.ends_at;
+        document.getElementById('cmActive').checked = t.is_active;
+        document.getElementById('cmRolls').value = (t.roll_numbers || []).join('\n');
+        document.getElementById('cmInstructions').value = t.instructions || '';
+        document.getElementById('cmDeleteBtn').style.display = t.has_attempts ? 'none' : '';
+        cmLock(t.has_attempts);
+        cmValidateRolls();
+    } else {
+        document.getElementById('cmFormTitle').textContent = 'New company mock';
+        document.getElementById('cmSubmitBtn').textContent = 'Create test';
+        document.getElementById('cmSource').value = 'OWN';
+        document.getElementById('cmInstructions').value = cm.defaults.instructions;
+        document.getElementById('cmDeleteBtn').style.display = 'none';
+        // Default window: from the next full hour, for two hours.
+        const nextHour = Math.ceil(Date.now() / 3600000) * 3600000;
+        document.getElementById('cmStartsAt').value = cmIstInputValue(nextHour);
+        document.getElementById('cmEndsAt').value = cmIstInputValue(nextHour + 2 * 3600000);
+    }
+    cmUpdateSourceHint();
+    cmShow('form');
+    document.getElementById('cmTitle').focus();
+}
+
+function closeCompanyForm() {
+    loadCompanyMocks();
+}
+
+function resetCompanyInstructions() {
+    if (cm.defaults) document.getElementById('cmInstructions').value = cm.defaults.instructions;
+}
+
+function cmScheduleRollCheck() {
+    clearTimeout(cm.rollTimer);
+    cm.rollTimer = setTimeout(cmValidateRolls, 400);
+}
+
+async function cmValidateRolls() {
+    const status = document.getElementById('cmRollStatus');
+    const text = document.getElementById('cmRolls').value;
+    if (!text.trim()) { status.innerHTML = ''; return; }
+
+    const seq = ++cm.rollSeq;
+    try {
+        const r = await apiFetch('/company-mocks/validate-rolls', {
+            method: 'POST',
+            body: JSON.stringify({ roll_numbers: text, question_source: document.getElementById('cmSource').value })
+        });
+        if (seq !== cm.rollSeq) return; // a newer check is on its way
+
+        let summary = `<strong>${r.valid.length}</strong> valid`;
+        if (r.valid.length) {
+            const byPaper = {};
+            r.valid.forEach(v => { byPaper[v.paper_key] = (byPaper[v.paper_key] || 0) + 1; });
+            summary += ` (${Object.entries(byPaper).map(([k, n]) => `${escHtml(k)} paper: ${n}`).join(', ')})`;
+        }
+        const bad = [];
+        if (r.unknown.length) bad.push(`<div class="cm-bad">${r.unknown.length} not on the allow list: <span class="cm-list">${r.unknown.map(escHtml).join(', ')}</span></div>`);
+        if (r.inactive.length) bad.push(`<div class="cm-bad">${r.inactive.length} deactivated on the allow list: <span class="cm-list">${r.inactive.map(escHtml).join(', ')}</span></div>`);
+        if (r.no_bank.length) bad.push(`<div class="cm-bad">${r.no_bank.length} with no question bank for their department: <span class="cm-list">${r.no_bank.map(n => `${escHtml(n.roll_number)} (${escHtml(n.discipline || '—')})`).join(', ')}</span></div>`);
+        status.innerHTML = `<div>${summary}</div>${bad.join('')}`;
+    } catch (e) {
+        if (seq === cm.rollSeq) status.textContent = 'Could not check roll numbers: ' + e.message;
+    }
+}
+
+async function submitCompanyForm(e) {
+    e.preventDefault();
+    cmSetError(null);
+    const id = document.getElementById('cmId').value;
+    const body = {
+        title: document.getElementById('cmTitle').value.trim(),
+        question_source: document.getElementById('cmSource').value,
+        total_questions: Number(document.getElementById('cmQuestions').value),
+        duration_minutes: Number(document.getElementById('cmDuration').value),
+        max_attempts: Number(document.getElementById('cmMaxAttempts').value),
+        starts_at: document.getElementById('cmStartsAt').value,
+        ends_at: document.getElementById('cmEndsAt').value,
+        is_active: document.getElementById('cmActive').checked,
+        roll_numbers: document.getElementById('cmRolls').value,
+        instructions: document.getElementById('cmInstructions').value
+    };
+
+    const btn = document.getElementById('cmSubmitBtn');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = id ? 'Saving…' : 'Creating…';
+    try {
+        // Not apiFetch: a 400 here carries the offending roll numbers.
+        const res = await fetch(`${API}/company-mocks${id ? '/' + id : ''}`, {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            cmSetError(data.errors ? data.errors.join('\n') : (data.message || `Save failed (${res.status})`), data);
+            return;
+        }
+        showToast(id ? 'Company mock updated' : 'Company mock created');
+        openCompanyResults(data.id);
+    } catch (err) {
+        cmSetError('Could not reach the server: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+    }
+}
+
+async function deleteCompanyMock() {
+    const id = document.getElementById('cmId').value;
+    if (!id) return;
+    if (!confirm('Delete this company mock test? This cannot be undone.')) return;
+    try {
+        await apiFetch(`/company-mocks/${id}`, { method: 'DELETE' });
+        showToast('Company mock deleted');
+        loadCompanyMocks();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+async function openCompanyResults(id) {
+    cm.currentId = id;
+    cmShow('results');
+    const tbody = document.getElementById('cmResultsBody');
+    const meta = document.getElementById('cmResultsMeta');
+    tbody.innerHTML = `<tr><td colspan="10" class="loading-spinner"><div class="spinner"></div>Loading…</td></tr>`;
+    meta.innerHTML = '';
+    try {
+        await cmLoadDefaults().catch(() => null);
+        const { test: t, results } = await apiFetch(`/company-mocks/${id}`);
+        document.getElementById('cmResultsTitle').textContent = t.title;
+        const editBtn = document.getElementById('cmResultsEditBtn');
+        if (editBtn) editBtn.onclick = () => openCompanyForm(id);
+
+        const submitted = results.filter(r => r.status === 'submitted');
+        const avg = submitted.length
+            ? submitted.reduce((n, r) => n + r.score, 0) / submitted.length : null;
+        const attemptsAllowed = t.max_attempts || 1;
+        meta.innerHTML = `
+            ${CM_STATE_BADGE[t.state] || ''}
+            ${cmFmtIst(t.starts_at_ms)} to ${cmFmtIst(t.ends_at_ms)} ·
+            ${t.total_questions} questions · ${t.duration_minutes} min ·
+            ${escHtml(cmSourceLabel(t.question_source))} ·
+            ${attemptsAllowed} attempt${attemptsAllowed === 1 ? '' : 's'} allowed<br>
+            <strong>${submitted.length}</strong> of ${results.filter(r => r.is_eligible).length} submitted
+            ${avg !== null ? ` · average ${fmtScore(avg)}` : ''}
+            ${t.papers?.length ? ` · papers: ${t.papers.map(p => `${escHtml(p.paper_key)} (${p.questions} Q)`).join(', ')}` : ''}`;
+
+        tbody.innerHTML = results.length ? results.map(r => `
+            <tr>
+                <td class="num">${r.rank ?? '—'}</td>
+                <td>
+                    <div class="name-cell">${escHtml(r.name)}</div>
+                    <div class="sub-text">${escHtml(r.email)}${r.is_eligible ? '' : ' · removed from list'}</div>
+                </td>
+                <td>${escHtml(r.roll_number)}</td>
+                <td>${disciplineBadges(r)}</td>
+                <td>${CM_STATUS_BADGE[r.status]}</td>
+                <td class="score-cell">${r.score !== null ? `${fmtScore(r.score)} / ${fmtScore(r.max_score)}` : '—'}</td>
+                <td class="num">${r.total_correct !== null ? `${r.total_correct} / ${r.total_wrong}` : '—'}</td>
+                <td class="num">${fmtTime(r.time_taken_seconds)}</td>
+                <td class="num">${r.attempts}</td>
+                <td class="num">${r.violations || 0}${r.auto_submitted ? ' <span class="badge badge-danger">auto</span>' : ''}</td>
+            </tr>`).join('')
+            : `<tr><td colspan="10"><div class="empty-state">No students.</div></td></tr>`;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="10" class="loading-spinner">Error: ${escHtml(e.message)}</td></tr>`;
+    }
+}
+
+function closeCompanyResults() {
+    loadCompanyMocks();
+}
+
+function exportCompanyResults() {
+    if (!cm.currentId) return;
+    download(`/company-mocks/${cm.currentId}/export`, `company-mock-${cm.currentId}_results_${today()}.xlsx`);
+}
+
+// Form listeners (the form is absent for a HOD).
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cmForm')?.addEventListener('submit', submitCompanyForm);
+    document.getElementById('cmRolls')?.addEventListener('input', cmScheduleRollCheck);
+    document.getElementById('cmSource')?.addEventListener('change', () => {
+        cmUpdateSourceHint();
+        cmValidateRolls();
+    });
+});

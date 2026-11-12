@@ -294,6 +294,54 @@ async function initTables(pool) {
         await pool.query('ALTER TABLE allowed_students ADD COLUMN secondary_discipline VARCHAR(100) NULL AFTER discipline;');
     } catch (e) { /* column already exists */ }
 
+    // ── Company mock tests ────────────────────────────────────────────────
+    // A company mock is a Mock_Exams row of kind 'company'. Every existing row
+    // takes the default 'department', so nothing about the department mocks
+    // changes. All of these are additive and no-ops once applied.
+    const companyColumns = [
+        `ADD COLUMN kind VARCHAR(20) NOT NULL DEFAULT 'department'`,
+        `ADD COLUMN instructions TEXT NULL`,
+        `ADD COLUMN question_source VARCHAR(20) NULL`,
+        `ADD COLUMN starts_at DATETIME NULL`,
+        `ADD COLUMN ends_at DATETIME NULL`,
+        `ADD COLUMN max_attempts INT NULL`,
+        `ADD COLUMN created_by VARCHAR(255) NULL`
+    ];
+    for (const clause of companyColumns) {
+        try {
+            await pool.query(`ALTER TABLE Mock_Exams ${clause};`);
+        } catch (e) { /* column already exists */ }
+    }
+    try {
+        await pool.query('ALTER TABLE Exam_Attempts ADD COLUMN instructions_accepted_at DATETIME NULL;');
+    } catch (e) { /* column already exists */ }
+
+    // Who may see a company mock, by roll number.
+    await pool.query(`CREATE TABLE IF NOT EXISTS Company_Mock_Eligible (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        exam_id INT NOT NULL,
+        roll_number VARCHAR(50) NOT NULL,
+        FOREIGN KEY (exam_id) REFERENCES Mock_Exams(id) ON DELETE CASCADE,
+        UNIQUE KEY uq_exam_roll (exam_id, roll_number),
+        KEY idx_roll (roll_number)
+    )`);
+
+    // The fixed paper of a company mock: one per department (paper_key is the
+    // department mock's code, e.g. 'ME'). Every student of that department sits
+    // these same questions, shuffled per attempt.
+    await pool.query(`CREATE TABLE IF NOT EXISTS Company_Mock_Papers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        exam_id INT NOT NULL,
+        paper_key VARCHAR(20) NOT NULL,
+        section_name VARCHAR(150) NOT NULL,
+        section_order INT NOT NULL DEFAULT 0,
+        position INT NOT NULL,
+        question_id INT NOT NULL,
+        FOREIGN KEY (exam_id) REFERENCES Mock_Exams(id) ON DELETE CASCADE,
+        FOREIGN KEY (question_id) REFERENCES Question_Bank(id) ON DELETE CASCADE,
+        UNIQUE KEY uq_paper_position (exam_id, paper_key, position)
+    )`);
+
     // Ensure programme & discipline exist on Students table if used
     try {
         await pool.query(`ALTER TABLE Students ADD COLUMN programme VARCHAR(100) NULL, ADD COLUMN discipline VARCHAR(100) NULL;`);
