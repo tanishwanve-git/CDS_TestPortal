@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const testController = require('../controllers/testController');
 const mockController = require('../controllers/mockController');
+const companyMockController = require('../controllers/companyMockController');
 const { protect } = require('../middlewares/authMiddleware');
 
 // ─── Mock exams (randomised papers drawn from Question_Bank) ─────────────────
 // These are declared before the legacy '/:testId' routes so that 'mock' is never
 // swallowed by the wildcard.
 router.get('/mock', protect, mockController.listMockExams);
+// Company mock tests this student's roll number is on. Started through the
+// same /mock/:examId/start below.
+router.get('/company', protect, companyMockController.listForStudent);
 router.post('/mock/:examId/start', protect, mockController.startAttempt);
 router.get('/mock/attempt/:attemptId', protect, mockController.getAttempt);
 router.post('/mock/attempt/:attemptId/answer', protect, mockController.saveAnswer);

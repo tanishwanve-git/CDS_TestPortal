@@ -1,6 +1,7 @@
 const getPool = require('../config/db');
 const { formatAnswer, isAnswerCorrect } = require('../utils/answerKey');
 const { examServes, studentDepartments } = require('../utils/departments');
+const companyMock = require('./companyMockController');
 
 /**
  * mockController.js — the randomised mock-exam flow.
@@ -62,9 +63,15 @@ function startedAtMs(attempt) {
     return Date.now();
 }
 
-/** Seconds left before this attempt's deadline (never negative). */
+/**
+ * Seconds left before this attempt's deadline (never negative). A company
+ * mock also closes at its end time, so a late starter only gets what is left
+ * of the window (`ends_at_ms`, NULL for department mocks).
+ */
 function secondsRemaining(attempt) {
-    const deadline = startedAtMs(attempt) + attempt.duration_minutes * 60 * 1000;
+    let deadline = startedAtMs(attempt) + attempt.duration_minutes * 60 * 1000;
+    const endsAt = Number(attempt.ends_at_ms);
+    if (Number.isFinite(endsAt) && endsAt > 0) deadline = Math.min(deadline, endsAt);
     return Math.max(0, Math.floor((deadline - Date.now()) / 1000));
 }
 
@@ -90,7 +97,7 @@ exports.listMockExams = async (req, res) => {
                                                    WHERE s2.exam_id = e.id))) AS bank_size
              FROM Mock_Exams e
              LEFT JOIN Mock_Exam_Sections s ON s.exam_id = e.id
-             WHERE e.is_active = 1
+             WHERE e.is_active = 1 AND e.kind = 'department'
              GROUP BY e.id
              ORDER BY e.title`
         );
@@ -161,6 +168,12 @@ exports.startAttempt = async (req, res) => {
             'SELECT * FROM Mock_Exams WHERE id = ? AND is_active = 1', [examId]
         );
         if (!exam) return res.status(404).json({ message: 'Mock exam not found' });
+
+        // Company mocks are offered by roll number, with their own window,
+        // attempt limit and fixed papers.
+        if (exam.kind === 'company') {
+            return companyMock.startCompanyAttempt(req, res, pool, exam);
+        }
 
         // The dashboard only lists the student's own department's exams; this
         // stops a hand-made request from starting anyone else's.
@@ -256,6 +269,7 @@ exports.getAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
+                    UNIX_TIMESTAMP(e.ends_at) * 1000 AS ends_at_ms,
                     e.title, e.code, e.duration_minutes, e.description
              FROM Exam_Attempts a JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
@@ -533,6 +547,7 @@ exports.submitAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
+                    UNIX_TIMESTAMP(e.ends_at) * 1000 AS ends_at_ms,
                     e.duration_minutes
              FROM Exam_Attempts a
              JOIN Mock_Exams e ON e.id = a.exam_id
@@ -581,7 +596,7 @@ exports.getAttemptReview = async (req, res) => {
         const attemptId = parseInt(req.params.attemptId, 10);
 
         const [[attempt]] = await pool.query(
-            `SELECT a.*, e.title, e.code, e.duration_minutes
+            `SELECT a.*, e.title, e.code, e.duration_minutes, e.kind
              FROM Exam_Attempts a JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
             [attemptId, req.user.id]
@@ -634,6 +649,7 @@ exports.getAttemptReview = async (req, res) => {
                 exam_id: attempt.exam_id,
                 title: attempt.title,
                 code: attempt.code,
+                kind: attempt.kind,
                 score: parseFloat(attempt.score),
                 max_score: parseFloat(attempt.max_score),
                 total_questions: attempt.total_questions,
@@ -666,8 +682,13 @@ exports.abandonAttempt = async (req, res) => {
         const pool = await getPool;
         const attemptId = parseInt(req.params.attemptId, 10);
 
+        // A company mock attempt can't be thrown away: that would let a
+        // student look at the paper and then start again with a clean slate.
         const [result] = await pool.query(
-            `DELETE FROM Exam_Attempts WHERE id = ? AND student_id = ? AND status = 'in_progress'`,
+            `DELETE a FROM Exam_Attempts a
+               JOIN Mock_Exams e ON e.id = a.exam_id
+              WHERE a.id = ? AND a.student_id = ? AND a.status = 'in_progress'
+                AND e.kind = 'department'`,
             [attemptId, req.user.id]
         );
 

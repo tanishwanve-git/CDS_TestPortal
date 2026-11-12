@@ -447,9 +447,16 @@ async function main() {
 
         // Retire every exam the blueprint no longer lists. Inactive rather than
         // deleted: past attempts reference it and must stay reviewable.
+        // Company mocks are created in the admin console, not the blueprint, so
+        // they must never be retired here. `kind` is added by the server's own
+        // migration; make sure it exists in case the server hasn't run yet.
+        try {
+            await conn.query(`ALTER TABLE Mock_Exams ADD COLUMN kind VARCHAR(20) NOT NULL DEFAULT 'department'`);
+        } catch (e) { /* column already exists */ }
         const [retired] = await conn.query(
             `UPDATE Mock_Exams SET is_active = 0
-             WHERE is_active = 1 AND code NOT IN (${allExamCodes.map(() => '?').join(',')})`,
+             WHERE is_active = 1 AND kind = 'department'
+               AND code NOT IN (${allExamCodes.map(() => '?').join(',')})`,
             allExamCodes
         );
         if (retired.affectedRows) {

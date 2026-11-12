@@ -128,9 +128,13 @@
                 render(attempt, stats);
 
                 // Re-attempting draws a completely different paper, so offer it here.
-                const retakeBtn = document.getElementById('retakeBtn');
-                retakeBtn.style.display = 'inline-flex';
-                retakeBtn.onclick = startRetake;
+                // Not for a company mock: its attempts are limited and must
+                // start from the dashboard, where the instructions are shown.
+                if (attempt.kind !== 'company') {
+                    const retakeBtn = document.getElementById('retakeBtn');
+                    retakeBtn.style.display = 'inline-flex';
+                    retakeBtn.onclick = startRetake;
+                }
 
             } catch (err) {
                 document.getElementById('loadingMsg').innerText = 'Failed to load review. ' + err.message;

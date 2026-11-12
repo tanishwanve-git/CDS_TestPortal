@@ -385,7 +385,7 @@ async function queryExamCoverage(pool, req) {
         FROM Mock_Exams e
         LEFT JOIN Exam_Attempts a
                ON a.exam_id = e.id AND a.status = 'submitted' AND ${scopeAttempt.sql}
-        WHERE e.is_active = 1 AND ${scopeExam.sql}
+        WHERE e.is_active = 1 AND e.kind = 'department' AND ${scopeExam.sql}
         GROUP BY e.id
         ORDER BY e.title
     `, [...scopeAttempt.params, ...scopeExam.params]);
@@ -1034,7 +1034,7 @@ exports.getTests = async (req, res) => {
             FROM Mock_Exams e
             LEFT JOIN Exam_Attempts a
                    ON a.exam_id = e.id AND a.status = 'submitted' AND ${scopeAttempt.sql}
-            WHERE e.is_active = 1 AND ${scopeExam.sql}
+            WHERE e.is_active = 1 AND e.kind = 'department' AND ${scopeExam.sql}
             GROUP BY e.id
 
             ORDER BY created_at DESC
@@ -1658,7 +1658,7 @@ exports.exportData = async (req, res) => {
                 LEFT JOIN Students s ON LOWER(s.email) = LOWER(al.email)
                 LEFT JOIN Exam_Attempts a
                        ON a.student_id = s.id AND a.exam_id = e.id AND a.status = 'submitted'
-                WHERE ${where.join(' AND ')} AND e.is_active = 1
+                WHERE ${where.join(' AND ')} AND e.is_active = 1 AND e.kind = 'department'
                 GROUP BY al.id, e.id, al.roll_number, al.name, al.email,
                          al.programme, al.discipline, al.secondary_discipline,
                          e.title, e.code, e.department, e.disciplines, s.id
@@ -1844,3 +1844,6 @@ exports.getTestsList = async (req, res) => {
         res.status(500).json({ message: 'Internal Server Error' });
     }
 };
+
+// Shared with companyMockController's results export.
+exports.sendWorkbook = sendWorkbook;

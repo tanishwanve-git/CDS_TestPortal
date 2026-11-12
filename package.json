@@ -10,7 +10,9 @@
     "import:bank:dry": "node database/import_question_bank.js --dry-run",
     "import:bank:reset": "node database/import_question_bank.js --reset",
     "seed:students": "node database/seed_allowed_students.js",
-    "db:reset-btech": "node database/reset_to_btech.js"
+    "db:reset-btech": "node database/reset_to_btech.js",
+    "test:company:unit": "node --test tests/company_mock.unit.test.js",
+    "test:company:e2e": "node --test --test-concurrency=1 tests/company_mock.e2e.test.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

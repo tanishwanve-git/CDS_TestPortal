@@ -69,7 +69,11 @@ function departmentsOf(row) {
 
 /** Ids of every mock exam (active or not) that serves one of `departments`. */
 async function examIdsFor(pool, departments) {
-    const [exams] = await pool.query('SELECT id, department, disciplines FROM Mock_Exams');
+    // Company mocks are scoped by roll number, not department (see
+    // companyMock.js), so they never belong to a department's exam set.
+    const [exams] = await pool.query(
+        "SELECT id, department, disciplines FROM Mock_Exams WHERE kind = 'department'"
+    );
     return exams.filter(e => examServes(e, departments)).map(e => e.id);
 }
 
@@ -90,4 +94,4 @@ async function studentDepartments(pool, studentId) {
     return departmentsOf(row);
 }
 
-module.exports = { examServes, departmentsOf, examIdsFor, studentDepartments };
+module.exports = { examServes, departmentsOf, examIdsFor, studentDepartments, disciplineCode };
