@@ -7,6 +7,10 @@
  * of a department sits the SAME paper (Company_Mock_Papers), shuffled per
  * attempt, so marks can be compared fairly.
  *
+ * `starts_at`/`ends_at` are a START window: a student may begin (or re-attempt)
+ * only between them, but once begun gets the full duration, even if that runs
+ * past `ends_at`.
+ *
  * Where the questions come from is `question_source`:
  *   'OWN'          — each student's paper is their own (primary) department's;
  *   a dept code    — everyone gets that department's paper ('ME', 'CSE', …).
@@ -26,7 +30,7 @@ const DEFAULT_INSTRUCTIONS = [
     '1. This test has {N} questions and a duration of {T} minutes.',
     '2. Marking: +4 for every correct answer, -1 for every wrong MCQ answer. Numerical (NAT) questions carry no negative marking. Unanswered questions get 0.',
     '3. The test runs in fullscreen. Switching tabs, minimising the window or leaving fullscreen is recorded. The second violation submits your test automatically.',
-    '4. The test closes at {END}. If you start late, you only get the time remaining until then.',
+    '4. You can start the test any time between {START} and {END}. Once you start, you get the full {T} minutes.',
     "5. Your answers are saved automatically. Click 'Submit final test' when you are done.",
     '6. Your marks will be shared in the WhatsApp group.',
     '7. Do not use any unfair means: no phones, no other people, no AI tools, no searching online. Any malpractice will lead to disqualification.'

@@ -64,14 +64,12 @@ function startedAtMs(attempt) {
 }
 
 /**
- * Seconds left before this attempt's deadline (never negative). A company
- * mock also closes at its end time, so a late starter only gets what is left
- * of the window (`ends_at_ms`, NULL for department mocks).
+ * Seconds left before this attempt's deadline (never negative). For a company
+ * mock, starts_at/ends_at only bound when an attempt may BEGIN; once begun,
+ * every attempt gets the full duration, even past ends_at.
  */
 function secondsRemaining(attempt) {
-    let deadline = startedAtMs(attempt) + attempt.duration_minutes * 60 * 1000;
-    const endsAt = Number(attempt.ends_at_ms);
-    if (Number.isFinite(endsAt) && endsAt > 0) deadline = Math.min(deadline, endsAt);
+    const deadline = startedAtMs(attempt) + attempt.duration_minutes * 60 * 1000;
     return Math.max(0, Math.floor((deadline - Date.now()) / 1000));
 }
 
@@ -269,7 +267,6 @@ exports.getAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
-                    UNIX_TIMESTAMP(e.ends_at) * 1000 AS ends_at_ms,
                     e.title, e.code, e.duration_minutes, e.description
              FROM Exam_Attempts a JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
@@ -547,7 +544,6 @@ exports.submitAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
-                    UNIX_TIMESTAMP(e.ends_at) * 1000 AS ends_at_ms,
                     e.duration_minutes
              FROM Exam_Attempts a
              JOIN Mock_Exams e ON e.id = a.exam_id

@@ -101,9 +101,9 @@ async function validateBody(db, body, recipes, current = null) {
 
     const startsAt = cm.normalizeDateTime(pick('starts_at', current?.starts_at));
     const endsAt = cm.normalizeDateTime(pick('ends_at', current?.ends_at));
-    if (!startsAt) errors.push('Start date and time is required.');
-    if (!endsAt) errors.push('End date and time is required.');
-    if (startsAt && endsAt && startsAt >= endsAt) errors.push('The end time must be after the start time.');
+    if (!startsAt) errors.push('The start-window opening time is required.');
+    if (!endsAt) errors.push('The start-window closing time is required.');
+    if (startsAt && endsAt && startsAt >= endsAt) errors.push('The start window must close after it opens.');
 
     const instructions = String(pick('instructions', current?.instructions ?? cm.DEFAULT_INSTRUCTIONS) || '').trim();
     if (!instructions) errors.push('Instructions cannot be empty.');
@@ -436,8 +436,8 @@ exports.updateCompanyMock = async (req, res) => {
             if (changed.length) {
                 throw new cm.UserError(
                     'Students have already started this test, so the question source, number of questions, ' +
-                    'duration and start time can no longer be changed. You can still change the title, roll ' +
-                    'numbers, instructions, end time, attempts allowed and whether it is active.', 409);
+                    'duration and start-window opening time can no longer be changed. You can still change the title, ' +
+                    'roll numbers, instructions, start-window closing time, attempts allowed and whether it is active.', 409);
             }
         }
 
@@ -637,7 +637,7 @@ exports.startCompanyAttempt = async (req, res, pool, examRow) => {
         }
 
         if (exam.state === 'upcoming') throw new cm.UserError(`This test opens at ${cm.formatIst(exam.starts_at_ms)}.`, 403);
-        if (exam.state === 'closed') throw new cm.UserError('This test has closed.', 403);
+        if (exam.state === 'closed') throw new cm.UserError('The start window for this test has closed.', 403);
         if (exam.state !== 'open') throw new cm.UserError('This test is not available.', 403);
 
         if (req.body?.acknowledged !== true) {

@@ -429,15 +429,17 @@ function renderCompanyCard(test) {
 
     let tag;
     let foot;
-    if (test.state === 'upcoming') {
+    if (resuming) {
+        // Started inside the start window: resumable until their own time runs
+        // out, even after the window has closed.
+        tag = '<span class="tag tag-accent">In progress</span>';
+        foot = `<button type="button" class="btn btn-primary btn-block" onclick="startCompanyTest(${test.id})">Resume attempt</button>`;
+    } else if (test.state === 'upcoming') {
         tag = '<span class="tag tag-quiet">Upcoming</span>';
-        foot = `<div class="foot-note">Opens ${escapeHtml(formatIst(test.starts_at_ms))}</div>`;
+        foot = `<div class="foot-note">You can start from ${escapeHtml(formatIst(test.starts_at_ms))}</div>`;
     } else if (test.state === 'closed') {
         tag = '<span class="tag tag-quiet">Closed</span>';
-        foot = reviewBtn || '<div class="foot-note">Closed. You did not attempt this test.</div>';
-    } else if (resuming) {
-        tag = '<span class="tag tag-accent">Open</span>';
-        foot = `<button type="button" class="btn btn-primary btn-block" onclick="startCompanyTest(${test.id})">Resume attempt</button>`;
+        foot = reviewBtn || '<div class="foot-note">The start window has closed. You did not attempt this test.</div>';
     } else if (test.attempts_left > 0) {
         tag = '<span class="tag tag-accent">Open</span>';
         foot = `<button type="button" class="btn btn-primary btn-block" onclick="startCompanyTest(${test.id})">${test.attempts_used > 0 ? 'Re-attempt' : 'Start test'}</button>`;
@@ -457,7 +459,7 @@ function renderCompanyCard(test) {
                     ${test.total_questions} questions &middot; ${test.duration_minutes} min
                 </div>
                 <div class="exam-spec" style="margin-top:4px;">
-                    ${escapeHtml(formatIst(test.starts_at_ms))} &ndash; ${escapeHtml(formatIst(test.ends_at_ms))}
+                    Start between ${escapeHtml(formatIst(test.starts_at_ms))} &ndash; ${escapeHtml(formatIst(test.ends_at_ms))}
                 </div>
                 <div class="exam-history">${scoreLine} &middot; ${attemptsLine}</div>
             </div>
@@ -485,7 +487,7 @@ function setRulesMode(companyTest) {
             startBtn.disabled = true;
             startBtn.innerText = companyTest.in_progress_attempt_id ? 'Resume test' : 'Start test';
         }
-        if (label) label.innerText = 'Closes';
+        if (label) label.innerText = 'Start by';
         if (sections) sections.innerText = formatIst(companyTest.ends_at_ms);
     } else {
         if (standard) standard.style.display = '';
