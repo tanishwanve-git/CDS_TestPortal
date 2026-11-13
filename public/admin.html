@@ -536,7 +536,7 @@
                                     <thead>
                                         <tr>
                                             <th>Test</th>
-                                            <th>Window (IST)</th>
+                                            <th>Start window (IST)</th>
                                             <th>Paper</th>
                                             <th>Eligible</th>
                                             <th>Submitted</th>
@@ -567,7 +567,7 @@
                                 <input type="hidden" id="cmId">
                                 <div class="cm-lock-note" id="cmLockNote" style="display:none;">
                                     Students have already started this test, so the question source, number of
-                                    questions, duration and start time are locked.
+                                    questions, duration and start-window opening time are locked.
                                 </div>
 
                                 <div class="filter-grid" style="border-bottom:none; margin-bottom:0;">
@@ -596,11 +596,11 @@
                                             value="1" required>
                                     </label>
                                     <label class="filter-field">
-                                        <span>Opens at (IST) *</span>
+                                        <span>Can start from (IST) *</span>
                                         <input type="datetime-local" class="filter-input" id="cmStartsAt" required data-lockable>
                                     </label>
                                     <label class="filter-field">
-                                        <span>Closes at (IST) *</span>
+                                        <span>Can start until (IST) *</span>
                                         <input type="datetime-local" class="filter-input" id="cmEndsAt" required>
                                     </label>
                                     <div class="filter-field">
@@ -622,8 +622,9 @@
                                     <textarea id="cmInstructions" rows="10"></textarea>
                                 </label>
                                 <p class="muted cm-hint">
-                                    {N}, {T} and {END} are filled in with the number of questions, the duration and the
-                                    closing time. Students must tick &ldquo;I have read and understood all the instructions
+                                    {N}, {T}, {START} and {END} are filled in with the number of questions, the duration,
+                                    and the start and end of the start window. Students can begin only inside the start
+                                    window; once they begin they get the full duration, even past its end. Students must tick &ldquo;I have read and understood all the instructions
                                     above and I will follow them&rdquo; before they can start.
                                     <button type="button" class="btn btn-ghost btn-sm" onclick="resetCompanyInstructions()">Reset to default text</button>
                                 </p>

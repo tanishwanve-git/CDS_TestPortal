@@ -1685,7 +1685,7 @@ async function openCompanyResults(id) {
         const attemptsAllowed = t.max_attempts || 1;
         meta.innerHTML = `
             ${CM_STATE_BADGE[t.state] || ''}
-            ${cmFmtIst(t.starts_at_ms)} to ${cmFmtIst(t.ends_at_ms)} ·
+            Start window ${cmFmtIst(t.starts_at_ms)} to ${cmFmtIst(t.ends_at_ms)} ·
             ${t.total_questions} questions · ${t.duration_minutes} min ·
             ${escHtml(cmSourceLabel(t.question_source))} ·
             ${attemptsAllowed} attempt${attemptsAllowed === 1 ? '' : 's'} allowed<br>

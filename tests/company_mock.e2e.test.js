@@ -560,7 +560,7 @@ test('a test with attempts cannot be deleted', async () => {
 
 // ── windows ─────────────────────────────────────────────────────────────────
 
-test('a late starter only gets the time left until the end time', async () => {
+test('a late starter still gets the full duration, past the end of the start window', async () => {
     const res = await createCompany({
         title: 'Short window', question_source: 'ME', roll_numbers: '23110004',
         starts_at: ist(-30), ends_at: ist(10), duration_minutes: 60
@@ -570,7 +570,32 @@ test('a late starter only gets the time left until the end time', async () => {
     assert.equal(start.status, 200, JSON.stringify(start.body));
     const paper = await api('GET', `/api/tests/mock/attempt/${start.body.attemptId}`, students.ph.token);
     const left = paper.body.attempt.seconds_remaining;
-    assert.ok(left > 530 && left <= 600, `seconds_remaining=${left}`);
+    assert.ok(left > 3590 && left <= 3600, `seconds_remaining=${left}`);
+
+    // The start window closes while they are still writing.
+    await db.query(`UPDATE Mock_Exams SET ends_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?`, [res.body.id]);
+
+    const list = await api('GET', '/api/tests/company', students.ph.token);
+    const t = list.body.tests.find(x => x.id === res.body.id);
+    assert.equal(t.state, 'closed');
+    assert.equal(t.in_progress_attempt_id, start.body.attemptId, 'still offered as a resume');
+
+    const resume = await api('POST', `/api/tests/mock/${res.body.id}/start`, students.ph.token, {});
+    assert.deepEqual(resume.body, { attemptId: start.body.attemptId, resumed: true });
+
+    const again = await api('GET', `/api/tests/mock/attempt/${start.body.attemptId}`, students.ph.token);
+    assert.ok(again.body.attempt.seconds_remaining > 3500, 'clock is not cut at the window end');
+
+    const answers = Object.fromEntries(again.body.sections.flatMap(s => s.questions).map(q => [q.id, 'A']));
+    const sub = await api('POST', `/api/tests/mock/attempt/${start.body.attemptId}/submit`, students.ph.token, { answers });
+    assert.equal(sub.status, 200, 'answers given after the window closed still count');
+    assert.ok(sub.body.totalAnswered > 0);
+
+    // A new attempt can't begin once the window is shut, even if attempts remain.
+    await db.query(`UPDATE Mock_Exams SET max_attempts = 3 WHERE id = ?`, [res.body.id]);
+    const late = await api('POST', `/api/tests/mock/${res.body.id}/start`, students.ph.token, { acknowledged: true });
+    assert.equal(late.status, 403);
+    assert.match(late.body.message, /start window/);
 });
 
 let upcomingId;

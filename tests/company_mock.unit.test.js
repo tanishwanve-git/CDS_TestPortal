@@ -76,6 +76,12 @@ test('fillInstructions fills every placeholder in IST', () => {
     assert.match(text, /^30 questions, 45 minutes, closes 15 Nov 2026, 12:00 pm\. 30!$/i);
 });
 
+test('fillInstructions fills {START} too', () => {
+    const startsAt = Date.UTC(2026, 10, 15, 13, 45); // 19:15 IST
+    const text = cm.fillInstructions('from {START}', { total_questions: 1, duration_minutes: 1, starts_at_ms: startsAt });
+    assert.match(text, /^from 15 Nov 2026, 07:15 pm$/i);
+});
+
 test('normalizeDateTime accepts form values and rejects junk', () => {
     assert.equal(cm.normalizeDateTime('2026-11-15T10:00'), '2026-11-15 10:00:00');
     assert.equal(cm.normalizeDateTime('2026-11-15 10:00:30'), '2026-11-15 10:00:30');
@@ -87,7 +93,7 @@ test('normalizeDateTime accepts form values and rejects junk', () => {
 
 test('the default instructions carry the agreed points', () => {
     const text = cm.DEFAULT_INSTRUCTIONS;
-    for (const needle of ['+4', '-1', 'WhatsApp', 'unfair means', '{N}', '{T}', '{END}']) {
+    for (const needle of ['+4', '-1', 'WhatsApp', 'unfair means', '{N}', '{T}', '{START}', '{END}']) {
         assert.ok(text.includes(needle), needle);
     }
 });
