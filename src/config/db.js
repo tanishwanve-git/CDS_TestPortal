@@ -305,7 +305,10 @@ async function initTables(pool) {
         `ADD COLUMN starts_at DATETIME NULL`,
         `ADD COLUMN ends_at DATETIME NULL`,
         `ADD COLUMN max_attempts INT NULL`,
-        `ADD COLUMN created_by VARCHAR(255) NULL`
+        `ADD COLUMN created_by VARCHAR(255) NULL`,
+        // Company mocks: a student may not submit by hand before this many
+        // minutes have passed since they started. 0 = no minimum.
+        `ADD COLUMN min_submit_minutes INT NOT NULL DEFAULT 0`
     ];
     for (const clause of companyColumns) {
         try {

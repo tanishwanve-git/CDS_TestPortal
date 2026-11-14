@@ -32,6 +32,10 @@ let timerInterval = null;
 let deadline = null;      // epoch ms
 let isSubmitting = false;
 let violationCount = 0;
+// Company mocks may forbid submitting by hand before a minimum time. Until
+// then the Submit button stays off and counts down. Auto-submits (time up,
+// proctoring) ignore this — performSubmit(true) never looks at it.
+let submitUnlockAt = 0;   // epoch ms; 0 = no lock
 
 // ---------- Local cache ----------
 // Answers live on the server, but a copy in sessionStorage means a reload inside
@@ -291,6 +295,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('qOfTotal').innerText = `of ${flatQuestions.length}`;
 
         deadline = Date.now() + attempt.seconds_remaining * 1000;
+        const lockSeconds = Number(attempt.min_submit_seconds_remaining) || 0;
+        submitUnlockAt = lockSeconds > 0 ? Date.now() + lockSeconds * 1000 : 0;
+        updateSubmitLock();
 
         renderSectionTabs();
         renderPalette();
@@ -549,6 +556,7 @@ function tick() {
         : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
     badge.classList.toggle('safe', left > 300);
+    updateSubmitLock();
 
     if (left <= 0) {
         clearInterval(timerInterval);
@@ -558,6 +566,31 @@ function tick() {
 
 // ---------- Submit ----------
 const submitModal = document.getElementById('submitModal');
+
+function submitLocked() {
+    return submitUnlockAt > 0 && Date.now() < submitUnlockAt;
+}
+
+// Keeps the Submit button in step with the minimum-time rule; called every
+// clock tick.
+function updateSubmitLock() {
+    const btn = document.getElementById('submitTestBtn');
+    if (!btn || isSubmitting) return;
+    if (submitLocked()) {
+        const left = Math.ceil((submitUnlockAt - Date.now()) / 1000);
+        const m = Math.floor(left / 60);
+        const s = left % 60;
+        btn.disabled = true;
+        btn.dataset.locked = '1';
+        btn.innerText = `Submit available in ${m}:${String(s).padStart(2, '0')}`;
+        btn.title = `You can submit after ${attempt?.min_submit_minutes || ''} minutes`;
+    } else if (btn.dataset.locked) {
+        delete btn.dataset.locked;
+        btn.disabled = false;
+        btn.innerText = 'Submit final test';
+        btn.title = '';
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prevBtn').onclick = () => {
@@ -572,6 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('clearBtn').onclick = clearCurrentResponse;
 
     document.getElementById('submitTestBtn').onclick = () => {
+        if (submitLocked()) return;
         const answered = Object.keys(answers).length;
         const unanswered = flatQuestions.length - answered;
         document.getElementById('submitModalBody').innerText =
@@ -588,6 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('confirmSubmitBtn').onclick = async () => {
         submitModal.classList.remove('active');
+        if (submitLocked()) return;
         await performSubmit(false);
     };
 
@@ -625,7 +660,11 @@ async function performSubmit(auto) {
 
         const data = await res.json();
 
-        if (!res.ok && res.status !== 409) throw new Error(data.message || 'Submission failed');
+        if (!res.ok && res.status !== 409) {
+            throw Object.assign(new Error(data.message || 'Submission failed'), {
+                lockSeconds: data.min_submit_seconds_remaining
+            });
+        }
 
         sessionStorage.removeItem(ANSWERS_KEY);
         localStorage.removeItem('currentAttemptId');
@@ -644,6 +683,10 @@ async function performSubmit(auto) {
         showToast('Submission failed: ' + err.message);
         isSubmitting = false;
         if (btn) { btn.disabled = false; btn.innerText = 'Submit final test'; }
+        if (Number(err.lockSeconds) > 0) {
+            submitUnlockAt = Date.now() + Number(err.lockSeconds) * 1000;
+        }
+        updateSubmitLock();
         // Keep the clock running so a retry is still possible before the deadline.
         if (deadline > Date.now()) startTimer();
     }

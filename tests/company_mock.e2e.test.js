@@ -242,6 +242,8 @@ test('migration adds the new columns/tables and leaves existing data alone', asy
     assert.equal(tables.length, 2);
     const [col] = await db.query(`SHOW COLUMNS FROM Exam_Attempts LIKE 'instructions_accepted_at'`);
     assert.equal(col.length, 1);
+    const [mins] = await db.query(`SELECT DISTINCT min_submit_minutes FROM Mock_Exams`);
+    assert.deepEqual(mins.map(r => r.min_submit_minutes), [0], 'existing exams get no minimum');
 });
 
 test('restarting the server re-runs the migration harmlessly', async () => {
@@ -264,7 +266,7 @@ test('only admins can create; HODs and students cannot', async () => {
 test('form defaults list own-department plus each department mock', async () => {
     const { body } = await api('GET', '/api/admin/company-mocks/defaults', adminToken);
     assert.deepEqual(body.sources.map(s => s.value), ['OWN', 'CSE', 'EE', 'ME']);
-    assert.match(body.instructions, /WhatsApp/);
+    assert.match(body.instructions, /Company Specific Process Update Group via email/);
 });
 
 // ── validation ──────────────────────────────────────────────────────────────
@@ -647,12 +649,95 @@ test('a test without attempts can be deleted, with its papers and roll list', as
 
 // ── department mocks unaffected ─────────────────────────────────────────────
 
+// ── minimum time before submit ──────────────────────────────────────────────
+
+test('minimum time before submit is validated', async () => {
+    for (const min of [60, 90, -1, 2.5, 'x']) {
+        const res = await createCompany({ min_submit_minutes: min, duration_minutes: 60 });
+        assert.equal(res.status, 400, `min=${min}`);
+    }
+});
+
+test('a student cannot submit by hand before the minimum time; auto-submits still work', async () => {
+    const res = await createCompany({
+        title: 'Min time', question_source: 'ME', roll_numbers: '23110006 23110007',
+        duration_minutes: 60, min_submit_minutes: 30,
+        instructions: 'Intro {N}.\nYou cannot submit before {MIN} minutes.\nGood luck.'
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const examId = res.body.id;
+
+    // The admin list and the student's instructions carry the value.
+    const admin = await api('GET', `/api/admin/company-mocks/${examId}`, adminToken);
+    assert.equal(admin.body.test.min_submit_minutes, 30);
+    const list = await api('GET', '/api/tests/company', students.ee.token);
+    const t = list.body.tests.find(x => x.id === examId);
+    assert.equal(t.min_submit_minutes, 30);
+    assert.equal(t.instructions, 'Intro 20.\nYou cannot submit before 30 minutes.\nGood luck.');
+
+    // ── ee: a voluntary early submit is refused, with the time left ──
+    const s1 = await api('POST', `/api/tests/mock/${examId}/start`, students.ee.token, { acknowledged: true });
+    const p1 = await api('GET', `/api/tests/mock/attempt/${s1.body.attemptId}`, students.ee.token);
+    const lock = p1.body.attempt.min_submit_seconds_remaining;
+    assert.ok(lock > 1780 && lock <= 1800, `lock=${lock}`);
+    assert.equal(p1.body.attempt.min_submit_minutes, 30);
+
+    const early = await api('POST', `/api/tests/mock/attempt/${s1.body.attemptId}/submit`, students.ee.token, { answers: {} });
+    assert.equal(early.status, 403);
+    assert.match(early.body.message, /only after 30 minutes/);
+    assert.ok(early.body.min_submit_seconds_remaining > 1700);
+
+    // Claiming "auto" without a recorded violation doesn't get round it.
+    const fakeAuto = await api('POST', `/api/tests/mock/attempt/${s1.body.attemptId}/submit`, students.ee.token,
+        { answers: {}, auto_submitted: true, violation_count: 5 });
+    assert.equal(fakeAuto.status, 403);
+    const [[still]] = await db.query(`SELECT status FROM Exam_Attempts WHERE id = ?`, [s1.body.attemptId]);
+    assert.equal(still.status, 'in_progress');
+
+    // A real proctoring auto-submit (violation recorded first) goes through.
+    await api('POST', `/api/tests/mock/attempt/${s1.body.attemptId}/violation`, students.ee.token);
+    const auto = await api('POST', `/api/tests/mock/attempt/${s1.body.attemptId}/submit`, students.ee.token,
+        { answers: {}, auto_submitted: true, violation_count: 1 });
+    assert.equal(auto.status, 200, JSON.stringify(auto.body));
+
+    // ── ai: once the minimum has passed, a normal submit works ──
+    const s2 = await api('POST', `/api/tests/mock/${examId}/start`, students.ai.token, { acknowledged: true });
+    await db.query(`UPDATE Exam_Attempts SET started_at = NOW() - INTERVAL 31 MINUTE WHERE id = ?`, [s2.body.attemptId]);
+    const p2 = await api('GET', `/api/tests/mock/attempt/${s2.body.attemptId}`, students.ai.token);
+    assert.equal(p2.body.attempt.min_submit_seconds_remaining, 0);
+    const ok = await api('POST', `/api/tests/mock/attempt/${s2.body.attemptId}/submit`, students.ai.token, { answers: {} });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+
+    // (Time running out needs no test of its own: the minimum must be shorter
+    // than the duration, so the lock is always over before the clock ends.)
+
+    // ── locked once attempts exist ──
+    const edit = await api('PUT', `/api/admin/company-mocks/${examId}`, adminToken, { min_submit_minutes: 10 });
+    assert.equal(edit.status, 409);
+});
+
+test('without a minimum, the {MIN} line is dropped and submitting is never locked', async () => {
+    const res = await createCompany({
+        title: 'No min', question_source: 'ME', roll_numbers: '23110003',
+        instructions: 'Intro.\nYou cannot submit before {MIN} minutes.\nBye.'
+    });
+    assert.equal(res.status, 201);
+    const list = await api('GET', '/api/tests/company', students.cs.token);
+    assert.equal(list.body.tests.find(x => x.id === res.body.id).instructions, 'Intro.\nBye.');
+    const s = await api('POST', `/api/tests/mock/${res.body.id}/start`, students.cs.token, { acknowledged: true });
+    const p = await api('GET', `/api/tests/mock/attempt/${s.body.attemptId}`, students.cs.token);
+    assert.equal(p.body.attempt.min_submit_seconds_remaining, 0);
+    const sub = await api('POST', `/api/tests/mock/attempt/${s.body.attemptId}/submit`, students.cs.token, { answers: {} });
+    assert.equal(sub.status, 200);
+});
+
 test('department mocks still start, resume and abandon as before', async () => {
     const [[meExam]] = await db.query(`SELECT id FROM Mock_Exams WHERE code = 'ME'`);
     const start = await api('POST', `/api/tests/mock/${meExam.id}/start`, students.me3.token, {});
     assert.equal(start.status, 200, JSON.stringify(start.body));
     const paper = await api('GET', `/api/tests/mock/attempt/${start.body.attemptId}`, students.me3.token);
     assert.equal(paper.body.attempt.total_questions, 50);
+    assert.equal(paper.body.attempt.min_submit_seconds_remaining, 0);
     assert.ok(paper.body.attempt.seconds_remaining > 5390);
     const abandon = await api('POST', `/api/tests/mock/attempt/${start.body.attemptId}/abandon`, students.me3.token);
     assert.equal(abandon.status, 200);
@@ -671,9 +756,10 @@ test('the real question-bank importer never retires company mocks', async () => 
     const [rows] = await db.query(`SELECT kind, COUNT(*) AS n, SUM(is_active) AS active
                                      FROM Mock_Exams GROUP BY kind ORDER BY kind`);
     const byKind = Object.fromEntries(rows.map(r => [r.kind, r]));
-    // Main, "Short window" and "Last week" remain ("Next week" was deleted).
-    assert.equal(Number(byKind.company.n), 3);
-    assert.equal(Number(byKind.company.active), 3);
+    // Main, "Short window", "Last week", "Min time" and "No min" remain
+    // ("Next week" was deleted).
+    assert.equal(Number(byKind.company.n), 5);
+    assert.equal(Number(byKind.company.active), 5);
     const [[main]] = await db.query(`SELECT is_active FROM Mock_Exams WHERE id = ?`, [mainId]);
     assert.equal(main.is_active, 1);
 });

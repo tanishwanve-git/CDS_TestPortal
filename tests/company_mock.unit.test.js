@@ -82,6 +82,17 @@ test('fillInstructions fills {START} too', () => {
     assert.match(text, /^from 15 Nov 2026, 07:15 pm$/i);
 });
 
+test('fillInstructions fills {MIN}, and drops its line when the minimum is 0', () => {
+    const text = 'A {N}\nWait {MIN} minutes before submitting.\nC {T}';
+    assert.equal(cm.fillInstructions(text, { total_questions: 5, duration_minutes: 60, min_submit_minutes: 30 }),
+        'A 5\nWait 30 minutes before submitting.\nC 60');
+    assert.equal(cm.fillInstructions(text, { total_questions: 5, duration_minutes: 60, min_submit_minutes: 0 }),
+        'A 5\nC 60');
+    assert.equal(cm.fillInstructions(text, { total_questions: 5, duration_minutes: 60 }), 'A 5\nC 60');
+    // The default text drops its minimum-time line too.
+    assert.doesNotMatch(cm.fillInstructions(cm.DEFAULT_INSTRUCTIONS, { total_questions: 1, duration_minutes: 1 }), /cannot submit/);
+});
+
 test('normalizeDateTime accepts form values and rejects junk', () => {
     assert.equal(cm.normalizeDateTime('2026-11-15T10:00'), '2026-11-15 10:00:00');
     assert.equal(cm.normalizeDateTime('2026-11-15 10:00:30'), '2026-11-15 10:00:30');
@@ -93,7 +104,7 @@ test('normalizeDateTime accepts form values and rejects junk', () => {
 
 test('the default instructions carry the agreed points', () => {
     const text = cm.DEFAULT_INSTRUCTIONS;
-    for (const needle of ['+4', '-1', 'WhatsApp', 'unfair means', '{N}', '{T}', '{START}', '{END}']) {
+    for (const needle of ['+4', '-1', 'unfair means', 'Company Specific Process Update Group', '{N}', '{T}', '{MIN}', '{START}', '{END}']) {
         assert.ok(text.includes(needle), needle);
     }
 });

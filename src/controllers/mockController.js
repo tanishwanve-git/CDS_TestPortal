@@ -64,6 +64,19 @@ function startedAtMs(attempt) {
 }
 
 /**
+ * Seconds until a company-mock student may submit by hand (never negative; 0
+ * for department mocks or when no minimum is set). A 2-second allowance
+ * absorbs the gap between the browser's countdown and the server clock.
+ */
+function submitLockSeconds(attempt) {
+    if (attempt.kind !== 'company') return 0;
+    const minMs = (Number(attempt.min_submit_minutes) || 0) * 60 * 1000;
+    if (minMs <= 0) return 0;
+    const left = startedAtMs(attempt) + minMs - 2000 - Date.now();
+    return Math.max(0, Math.ceil(left / 1000));
+}
+
+/**
  * Seconds left before this attempt's deadline (never negative). For a company
  * mock, starts_at/ends_at only bound when an attempt may BEGIN; once begun,
  * every attempt gets the full duration, even past ends_at.
@@ -267,7 +280,7 @@ exports.getAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
-                    e.title, e.code, e.duration_minutes, e.description
+                    e.title, e.code, e.duration_minutes, e.description, e.kind, e.min_submit_minutes
              FROM Exam_Attempts a JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
             [attemptId, req.user.id]
@@ -349,7 +362,11 @@ exports.getAttempt = async (req, res) => {
                 // Likewise authoritative for violations — see logViolation.
                 // The arena restores its counter from this instead of always
                 // starting a refreshed page back at 0.
-                violation_count: attempt.violation_count || 0
+                violation_count: attempt.violation_count || 0,
+                // Company mocks: seconds until the student may submit by hand
+                // (0 = now). The arena keeps its Submit button off until then.
+                min_submit_minutes: attempt.kind === 'company' ? (attempt.min_submit_minutes || 0) : 0,
+                min_submit_seconds_remaining: submitLockSeconds(attempt)
             },
             sections,
             savedAnswers
@@ -544,7 +561,7 @@ exports.submitAttempt = async (req, res) => {
 
         const [[attempt]] = await pool.query(
             `SELECT a.*, UNIX_TIMESTAMP(a.started_at) * 1000 AS started_at_ms,
-                    e.duration_minutes
+                    e.duration_minutes, e.kind, e.min_submit_minutes
              FROM Exam_Attempts a
              JOIN Mock_Exams e ON e.id = a.exam_id
              WHERE a.id = ? AND a.student_id = ?`,
@@ -563,6 +580,24 @@ exports.submitAttempt = async (req, res) => {
         // the server already recorded.
         const clientViolationCount = parseInt(violation_count, 10) || 0;
         const finalViolationCount = Math.max(attempt.violation_count || 0, clientViolationCount);
+
+        // A company mock may set a minimum time before submitting. It only
+        // stops a voluntary submit: the clock running out always goes through,
+        // and so does a proctoring auto-submit — but only one backed by a
+        // violation the SERVER already recorded, so a client can't claim
+        // "auto" to dodge the rule. (403, not 409: the arena reads 409 as
+        // "already submitted".)
+        const lockLeft = submitLockSeconds(attempt);
+        const provenAuto = Boolean(auto_submitted) && (attempt.violation_count || 0) >= 1;
+        if (!expired && lockLeft > 0 && !provenAuto) {
+            const mins = Math.floor(lockLeft / 60);
+            const secs = lockLeft % 60;
+            return res.status(403).json({
+                message: `You can submit this test only after ${attempt.min_submit_minutes} minutes. ` +
+                    `Please wait ${mins}m ${String(secs).padStart(2, '0')}s more.`,
+                min_submit_seconds_remaining: lockLeft
+            });
+        }
 
         const graded = await gradeAndFinalize(pool, attempt, {
             clientAnswers: answers,
