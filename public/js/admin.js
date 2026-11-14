@@ -1474,7 +1474,7 @@ async function loadCompanyMocks() {
                 </td>
                 <td>
                     <div>${t.total_questions} Q · ${t.duration_minutes} min</div>
-                    <div class="sub-text">${escHtml(cmSourceLabel(t.question_source))} · ${t.max_attempts || 1} attempt${(t.max_attempts || 1) === 1 ? '' : 's'}</div>
+                    <div class="sub-text">${escHtml(cmSourceLabel(t.question_source))} · ${t.max_attempts || 1} attempt${(t.max_attempts || 1) === 1 ? '' : 's'}${t.min_submit_minutes ? ` · submit after ${t.min_submit_minutes} min` : ''}</div>
                 </td>
                 <td class="num">${t.eligible_count}</td>
                 <td class="num">${t.submitted_count}</td>
@@ -1543,6 +1543,7 @@ async function openCompanyForm(id = null) {
         document.getElementById('cmQuestions').value = t.total_questions;
         document.getElementById('cmDuration').value = t.duration_minutes;
         document.getElementById('cmMaxAttempts').value = t.max_attempts || 1;
+        document.getElementById('cmMinSubmit').value = t.min_submit_minutes || 0;
         document.getElementById('cmStartsAt').value = t.starts_at;
         document.getElementById('cmEndsAt').value = t.ends_at;
         document.getElementById('cmActive').checked = t.is_active;
@@ -1619,6 +1620,7 @@ async function submitCompanyForm(e) {
         total_questions: Number(document.getElementById('cmQuestions').value),
         duration_minutes: Number(document.getElementById('cmDuration').value),
         max_attempts: Number(document.getElementById('cmMaxAttempts').value),
+        min_submit_minutes: Number(document.getElementById('cmMinSubmit').value || 0),
         starts_at: document.getElementById('cmStartsAt').value,
         ends_at: document.getElementById('cmEndsAt').value,
         is_active: document.getElementById('cmActive').checked,
@@ -1688,7 +1690,8 @@ async function openCompanyResults(id) {
             Start window ${cmFmtIst(t.starts_at_ms)} to ${cmFmtIst(t.ends_at_ms)} ·
             ${t.total_questions} questions · ${t.duration_minutes} min ·
             ${escHtml(cmSourceLabel(t.question_source))} ·
-            ${attemptsAllowed} attempt${attemptsAllowed === 1 ? '' : 's'} allowed<br>
+            ${attemptsAllowed} attempt${attemptsAllowed === 1 ? '' : 's'} allowed
+            ${t.min_submit_minutes ? ` · submit only after ${t.min_submit_minutes} min` : ''}<br>
             <strong>${submitted.length}</strong> of ${results.filter(r => r.is_eligible).length} submitted
             ${avg !== null ? ` · average ${fmtScore(avg)}` : ''}
             ${t.papers?.length ? ` · papers: ${t.papers.map(p => `${escHtml(p.paper_key)} (${p.questions} Q)`).join(', ')}` : ''}`;

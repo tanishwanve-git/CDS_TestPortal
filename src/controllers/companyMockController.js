@@ -19,7 +19,7 @@ const LIMITS = { title: 255, questions: 200, duration: 600, attempts: 50, instru
 
 // Fields that shape the paper or the clock. Once anyone has started the test
 // these are frozen, so every attempt is sat under the same conditions.
-const LOCKED_AFTER_ATTEMPT = ['question_source', 'total_questions', 'duration_minutes', 'starts_at'];
+const LOCKED_AFTER_ATTEMPT = ['question_source', 'total_questions', 'duration_minutes', 'starts_at', 'min_submit_minutes'];
 
 function handleError(res, error, label) {
     if (error instanceof cm.UserError) {
@@ -33,7 +33,7 @@ function handleError(res, error, label) {
 // values (IST wall clock) and true epoch ms.
 const EXAM_COLUMNS = `
     e.id, e.code, e.title, e.instructions, e.question_source, e.total_questions,
-    e.duration_minutes, e.max_attempts, e.is_active, e.created_by, e.created_at,
+    e.duration_minutes, e.max_attempts, e.min_submit_minutes, e.is_active, e.created_by, e.created_at,
     DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at,
     DATE_FORMAT(e.ends_at, '%Y-%m-%dT%H:%i')   AS ends_at,
     UNIX_TIMESTAMP(e.starts_at) * 1000         AS starts_at_ms,
@@ -98,6 +98,15 @@ async function validateBody(db, body, recipes, current = null) {
     if (duration === null) errors.push(`Duration must be a whole number of minutes from 1 to ${LIMITS.duration}.`);
     const maxAttempts = intIn(pick('max_attempts', current?.max_attempts ?? 1), 1, LIMITS.attempts);
     if (maxAttempts === null) errors.push(`Attempts allowed must be a whole number from 1 to ${LIMITS.attempts}.`);
+    // Minimum time before a student may submit by hand; 0 = none. Must leave
+    // room to submit before the duration runs out.
+    const minSubmitRaw = pick('min_submit_minutes', current?.min_submit_minutes ?? 0);
+    const minSubmit = intIn(minSubmitRaw === '' || minSubmitRaw === null ? 0 : minSubmitRaw, 0, LIMITS.duration);
+    if (minSubmit === null) {
+        errors.push('Minimum time before submit must be a whole number of minutes (0 for none).');
+    } else if (duration !== null && minSubmit >= duration) {
+        errors.push('Minimum time before submit must be less than the duration.');
+    }
 
     const startsAt = cm.normalizeDateTime(pick('starts_at', current?.starts_at));
     const endsAt = cm.normalizeDateTime(pick('ends_at', current?.ends_at));
@@ -136,7 +145,7 @@ async function validateBody(db, body, recipes, current = null) {
     return {
         values: {
             title, question_source: source, total_questions: totalQuestions,
-            duration_minutes: duration, max_attempts: maxAttempts,
+            duration_minutes: duration, max_attempts: maxAttempts, min_submit_minutes: minSubmit,
             starts_at: startsAt, ends_at: endsAt, instructions, is_active: isActive
         },
         rolls
@@ -370,11 +379,13 @@ exports.createCompanyMock = async (req, res) => {
         const [ins] = await conn.query(
             `INSERT INTO Mock_Exams
                 (code, department, title, description, duration_minutes, total_questions, disciplines,
-                 is_active, kind, instructions, question_source, starts_at, ends_at, max_attempts, created_by)
-             VALUES (?, 'COMPANY', ?, NULL, ?, ?, NULL, ?, 'company', ?, ?, ?, ?, ?, ?)`,
+                 is_active, kind, instructions, question_source, starts_at, ends_at, max_attempts,
+                 min_submit_minutes, created_by)
+             VALUES (?, 'COMPANY', ?, NULL, ?, ?, NULL, ?, 'company', ?, ?, ?, ?, ?, ?, ?)`,
             [tempCode, values.title, values.duration_minutes, values.total_questions,
              values.is_active ? 1 : 0, values.instructions, values.question_source,
-             values.starts_at, values.ends_at, values.max_attempts, req.user.email || null]
+             values.starts_at, values.ends_at, values.max_attempts, values.min_submit_minutes,
+             req.user.email || null]
         );
         const examId = ins.insertId;
         await conn.query('UPDATE Mock_Exams SET code = ? WHERE id = ?', [`CO-${examId}`, examId]);
@@ -436,7 +447,7 @@ exports.updateCompanyMock = async (req, res) => {
             if (changed.length) {
                 throw new cm.UserError(
                     'Students have already started this test, so the question source, number of questions, ' +
-                    'duration and start-window opening time can no longer be changed. You can still change the title, ' +
+                    'duration, minimum time before submit and start-window opening time can no longer be changed. You can still change the title, ' +
                     'roll numbers, instructions, start-window closing time, attempts allowed and whether it is active.', 409);
             }
         }
@@ -444,11 +455,12 @@ exports.updateCompanyMock = async (req, res) => {
         await conn.query(
             `UPDATE Mock_Exams
                 SET title = ?, duration_minutes = ?, total_questions = ?, is_active = ?,
-                    instructions = ?, question_source = ?, starts_at = ?, ends_at = ?, max_attempts = ?
+                    instructions = ?, question_source = ?, starts_at = ?, ends_at = ?, max_attempts = ?,
+                    min_submit_minutes = ?
               WHERE id = ?`,
             [values.title, values.duration_minutes, values.total_questions, values.is_active ? 1 : 0,
              values.instructions, values.question_source, values.starts_at, values.ends_at,
-             values.max_attempts, examId]
+             values.max_attempts, values.min_submit_minutes, examId]
         );
 
         if (rolls) await replaceEligible(conn, examId, rolls.valid);
@@ -574,6 +586,7 @@ exports.listForStudent = async (req, res) => {
                 title: e.title,
                 total_questions: e.total_questions,
                 duration_minutes: e.duration_minutes,
+                min_submit_minutes: e.min_submit_minutes || 0,
                 starts_at_ms: e.starts_at_ms,
                 ends_at_ms: e.ends_at_ms,
                 state: e.state,

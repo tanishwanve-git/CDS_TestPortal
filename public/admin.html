@@ -567,7 +567,7 @@
                                 <input type="hidden" id="cmId">
                                 <div class="cm-lock-note" id="cmLockNote" style="display:none;">
                                     Students have already started this test, so the question source, number of
-                                    questions, duration and start-window opening time are locked.
+                                    questions, duration, minimum time before submit and start-window opening time are locked.
                                 </div>
 
                                 <div class="filter-grid" style="border-bottom:none; margin-bottom:0;">
@@ -594,6 +594,11 @@
                                         <span>Attempts allowed *</span>
                                         <input type="number" class="filter-input" id="cmMaxAttempts" min="1" max="50"
                                             value="1" required>
+                                    </label>
+                                    <label class="filter-field" title="Students cannot submit by hand before this many minutes after they start. 0 = no minimum. Auto-submits (time up, proctoring) are not blocked.">
+                                        <span>Min. time before submit (min)</span>
+                                        <input type="number" class="filter-input" id="cmMinSubmit" min="0" max="599"
+                                            value="0" data-lockable>
                                     </label>
                                     <label class="filter-field">
                                         <span>Can start from (IST) *</span>
@@ -622,8 +627,9 @@
                                     <textarea id="cmInstructions" rows="10"></textarea>
                                 </label>
                                 <p class="muted cm-hint">
-                                    {N}, {T}, {START} and {END} are filled in with the number of questions, the duration,
-                                    and the start and end of the start window. Students can begin only inside the start
+                                    {N}, {T}, {MIN}, {START} and {END} are filled in with the number of questions, the
+                                    duration, the minimum time before submit, and the start and end of the start window.
+                                    A line containing {MIN} is left out when the minimum is 0. Students can begin only inside the start
                                     window; once they begin they get the full duration, even past its end. Students must tick &ldquo;I have read and understood all the instructions
                                     above and I will follow them&rdquo; before they can start.
                                     <button type="button" class="btn btn-ghost btn-sm" onclick="resetCompanyInstructions()">Reset to default text</button>

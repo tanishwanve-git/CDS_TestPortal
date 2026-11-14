@@ -32,8 +32,9 @@ const DEFAULT_INSTRUCTIONS = [
     '3. The test runs in fullscreen. Switching tabs, minimising the window or leaving fullscreen is recorded. The second violation submits your test automatically.',
     '4. You can start the test any time between {START} and {END}. Once you start, you get the full {T} minutes.',
     "5. Your answers are saved automatically. Click 'Submit final test' when you are done.",
-    '6. Your marks will be shared in the WhatsApp group.',
-    '7. Do not use any unfair means: no phones, no other people, no AI tools, no searching online. Any malpractice will lead to disqualification.'
+    '6. You cannot submit the test before {MIN} minutes have passed since you started.',
+    '7. Your marks (consolidated list) will be shared in the Company Specific Process Update Group via email.',
+    '8. Do not use any unfair means: no phones, no other people, no AI tools, no searching online. Any malpractice will lead to disqualification.'
 ].join('\n');
 
 /** An error whose message is safe to show the admin/student as-is. */
@@ -268,9 +269,19 @@ function formatIst(ms) {
     });
 }
 
-/** Fills the {N}, {T}, {END} and {START} placeholders of an instruction text. */
+/**
+ * Fills the {N}, {T}, {MIN}, {END} and {START} placeholders of an instruction
+ * text. With no minimum submit time, any line mentioning {MIN} is dropped
+ * rather than telling students they must wait "0 minutes".
+ */
 function fillInstructions(text, exam) {
-    return String(text || '')
+    const minMinutes = Number(exam.min_submit_minutes) || 0;
+    let out = String(text || '');
+    if (minMinutes <= 0) {
+        out = out.split(/\r?\n/).filter(line => !/\{MIN\}/.test(line)).join('\n');
+    }
+    return out
+        .replace(/\{MIN\}/g, String(minMinutes))
         .replace(/\{N\}/g, String(exam.total_questions))
         .replace(/\{T\}/g, String(exam.duration_minutes))
         .replace(/\{END\}/g, formatIst(exam.ends_at_ms))
